@@ -157,6 +157,9 @@ module.exports = function (server, config) {
     it('should be able to end even on a failed connection', function (done) {
       var client = connect({host: 'this_hostname_should_not_exist'})
 
+      client.on('error', function (e) {
+        console.log('ERROR! %o', e)
+      })
       var timeout = setTimeout(function () {
         done(new Error('Failed to end a disconnected client'))
       }, 500)
@@ -202,7 +205,10 @@ module.exports = function (server, config) {
   describe('connecting', function () {
     it('should connect to the broker', function (done) {
       var client = connect()
-      client.on('error', done)
+      client.on('error', function (e) {
+        console.log('ERROR! %o', e)
+        done()
+      })
 
       server.once('client', function () {
         client.end()
@@ -212,7 +218,10 @@ module.exports = function (server, config) {
 
     it('should send a default client id', function (done) {
       var client = connect()
-      client.on('error', done)
+      client.on('error', function (e) {
+        console.log('ERROR! %o', e)
+        done()
+      })
 
       server.once('client', function (serverClient) {
         serverClient.once('connect', function (packet) {
@@ -389,7 +398,9 @@ module.exports = function (server, config) {
       // fake a port
       var client = connect({ reconnectPeriod: 20, port: 4557 })
 
-      client.on('error', function () {})
+      client.on('error', function (e) {
+        console.log('ERROR! %o', e)
+      })
 
       client.on('offline', function () {
         client.end(true, done)
