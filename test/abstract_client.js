@@ -7,19 +7,24 @@ var should = require('should')
 var sinon = require('sinon')
 var mqtt = require('../')
 var xtend = require('xtend')
-var Server = require('./server')
+var MqttServer = require('./server').MqttServer
 var Store = require('./../lib/store')
 var assert = require('chai').assert
 var port = 9876
 
 function nop () {}
 
-module.exports = function (server, config) {
+module.exports = function (serverBuilder, config) {
   var version = config.protocolVersion || 4
+  var server 
   function connect (opts) {
     opts = xtend(config, opts)
     return mqtt.connect(opts)
   }
+
+  beforeEach('Build MQTT Server to communicate with Client', function () {
+    server = serverBuilder().listen(config.port)
+  })
 
   describe('closing', function () {
     it('should emit close if stream closes', function (done) {
@@ -559,7 +564,7 @@ module.exports = function (server, config) {
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
       var publishCount = 0
-      var server2 = new Server(function (c) {
+      var server2 = new MqttServer(function (c) {
         c.on('connect', function () {
           c.connack({returnCode: 0})
         })
@@ -1244,7 +1249,7 @@ module.exports = function (server, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new Server(function (c) {
+      var server2 = new MqttServer(function (c) {
         // errors are not interesting for this test
         // but they might happen on some platforms
         c.on('error', function () {})
@@ -2603,7 +2608,7 @@ module.exports = function (server, config) {
     it('should not resubscribe when reconnecting if suback is error', function (done) {
       var tryReconnect = true
       var reconnectEvent = false
-      var server2 = new Server(function (c) {
+      var server2 = new MqttServer(function (c) {
         c.on('connect', function (packet) {
           c.connack({returnCode: 0})
         })
@@ -2656,7 +2661,7 @@ module.exports = function (server, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new Server(function (c) {
+      var server2 = new MqttServer(function (c) {
         c.on('connect', function (packet) {
           c.connack({returnCode: 0})
           if (reconnect) {
@@ -2715,7 +2720,7 @@ module.exports = function (server, config) {
     it('should clear outgoing if close from server', function (done) {
       var reconnect = false
       var client = {}
-      var server2 = new Server(function (c) {
+      var server2 = new MqttServer(function (c) {
         c.on('connect', function (packet) {
           c.connack({returnCode: 0})
         })
@@ -2768,7 +2773,7 @@ module.exports = function (server, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new Server(function (c) {
+      var server2 = new MqttServer(function (c) {
         c.on('connect', function (packet) {
           c.connack({returnCode: 0})
         })
@@ -2813,7 +2818,7 @@ module.exports = function (server, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new Server(function (c) {
+      var server2 = new MqttServer(function (c) {
         c.on('connect', function (packet) {
           c.connack({returnCode: 0})
         })
@@ -2858,7 +2863,7 @@ module.exports = function (server, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new Server(function (c) {
+      var server2 = new MqttServer(function (c) {
         c.on('connect', function (packet) {
           c.connack({returnCode: 0})
         })
@@ -2910,7 +2915,7 @@ module.exports = function (server, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new Server(function (c) {
+      var server2 = new MqttServer(function (c) {
         // errors are not interesting for this test
         // but they might happen on some platforms
         c.on('error', function () {})

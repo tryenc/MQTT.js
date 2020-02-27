@@ -11,15 +11,16 @@ var mqttPacket = require('mqtt-packet')
 var Buffer = require('safe-buffer').Buffer
 var Duplex = require('readable-stream').Duplex
 var Connection = require('mqtt-connection')
-var Server = require('./server')
-var FastServer = require('./server').FastMqttServer
+var MqttServer = require('./server').MqttServer
+var MqttServerNoWait = require('./server').MqttServerNoWait
+
 var port = 9876
 var server
 
 function nop () {}
 
 function connOnlyServer () {
-  return new Server(function (client) {
+  return new MqttServer(function (client) {
     client.on('connect', function (packet) {
       client.connack({returnCode: 0})
     })
@@ -107,9 +108,9 @@ function buildServer (fastFlag) {
     })
   }
   if (fastFlag) {
-    return new FastServer(handler)
+    return new MqttServerNoWait(handler)
   } else {
-    return new Server(handler)
+    return new MqttServer(handler)
   }
 }
 
@@ -136,7 +137,7 @@ describe('MqttClient', function () {
   })
 
   var config = { protocol: 'mqtt', port: port }
-  abstractClientTests(server, config)
+  abstractClientTests(buildServer, config)
 
   describe('message ids', function () {
     it('should increment the message id', function () {
@@ -168,7 +169,7 @@ describe('MqttClient', function () {
     })
 
     it('should not throw an error if packet\'s messageId is not found when receiving a pubrel packet', function (done) {
-      var server2 = new Server(function (c) {
+      var server2 = new MqttServer(function (c) {
         c.on('connect', function (packet) {
           c.connack({returnCode: 0})
           c.pubrel({ messageId: Math.floor(Math.random() * 9000) + 1000 })
@@ -430,7 +431,7 @@ describe('MqttClient', function () {
         reconnectPeriod: 300
       })
 
-      var server2 = new Server(function (client) {
+      var server2 = new MqttServer(function (client) {
         client.on('error', function () {})
         client.on('connect', function (packet) {
           if (packet.clientId === 'invalid') {
@@ -578,7 +579,7 @@ describe('MqttClient', function () {
 
   it('check emit error on checkDisconnection w/o callback', function (done) {
     this.timeout(15000)
-    var server118 = new Server(function (client) {
+    var server118 = new MqttServer(function (client) {
       client.on('connect', function (packet) {
         client.connack({
           reasonCode: 0
@@ -679,7 +680,7 @@ describe('MqttClient', function () {
     })
     it('Change values of some properties by server response', function (done) {
       this.timeout(15000)
-      var server116 = new Server(function (client) {
+      var server116 = new MqttServer(function (client) {
         client.on('connect', function (packet) {
           client.connack({
             reasonCode: 0,
@@ -715,7 +716,7 @@ describe('MqttClient', function () {
       this.timeout(15000)
       var tryReconnect = true
       var reconnectEvent = false
-      var server316 = new Server(function (client) {
+      var server316 = new MqttServer(function (client) {
         client.on('connect', function (packet) {
           client.connack({
             reasonCode: 0,
@@ -759,7 +760,7 @@ describe('MqttClient', function () {
       this.timeout(15000)
       var tryReconnect = true
       var reconnectEvent = false
-      var server326 = new Server(function (client) {
+      var server326 = new MqttServer(function (client) {
         client.on('connect', function (packet) {
           client.on('subscribe', function (packet) {
             if (!reconnectEvent) {
@@ -809,7 +810,7 @@ describe('MqttClient', function () {
       })
     })
 
-    var serverErr = new Server(function (client) {
+    var serverErr = new MqttServer(function (client) {
       client.on('connect', function (packet) {
         client.connack({
           reasonCode: 0
@@ -848,7 +849,7 @@ describe('MqttClient', function () {
         protocolVersion: 5
       }
       var subOptions = { properties: { subscriptionIdentifier: 1234 } }
-      var server119 = new Server(function (client) {
+      var server119 = new MqttServer(function (client) {
         client.on('connect', function (packet) {
           client.connack({
             reasonCode: 0
@@ -940,7 +941,7 @@ describe('MqttClient', function () {
     })
     it('server side disconnect', function (done) {
       this.timeout(15000)
-      var server327 = new Server(function (client) {
+      var server327 = new MqttServer(function (client) {
         client.on('connect', function (packet) {
           client.connack({
             reasonCode: 0
