@@ -510,6 +510,8 @@ module.exports = function (server, config) {
     it('should queue message until connected', function (done) {
       var client = connect()
 
+      client.on('error', nop)
+
       client.publish('test', 'test')
       client.subscribe('test')
       client.unsubscribe('test')
@@ -911,6 +913,8 @@ module.exports = function (server, config) {
       var client = connect()
       var count = 0
 
+      client.on('error', nop)
+
       client.on('connect', function () {
         client.subscribe('test')
         client.publish('test', 'test', { qos: 2 })
@@ -945,6 +949,8 @@ module.exports = function (server, config) {
 
     function testQosHandleMessage (qos, done) {
       var client = connect()
+
+      client.on('error', nop)
 
       var messageEventCount = 0
       var handleMessageCount = 0
@@ -1545,6 +1551,8 @@ module.exports = function (server, config) {
 
     it('should reconnect if pingresp is not sent', function (done) {
       var client = connect({keepalive: 1, reconnectPeriod: 100})
+
+      client.on('error', nop)
 
       // Fake no pingresp being send by stubbing the _handlePingresp function
       client._handlePingresp = function () {}
@@ -2258,6 +2266,9 @@ module.exports = function (server, config) {
 
     it('should reconnect after stream disconnect', function (done) {
       var client = connect()
+
+      client.on('error', nop)
+
       var tryReconnect = true
 
       client.on('connect', function () {
@@ -2294,6 +2305,9 @@ module.exports = function (server, config) {
 
     it('should emit \'offline\' after going offline', function (done) {
       var client = connect()
+
+      client.on('error', nop)
+
       var tryReconnect = true
       var offlineEvent = false
 
