@@ -16,6 +16,8 @@ var FastServer = require('./server').FastMqttServer
 var port = 9876
 var server
 
+function nop () {}
+
 function connOnlyServer () {
   return new Server(function (client) {
     client.on('connect', function (packet) {
@@ -277,7 +279,7 @@ describe('MqttClient', function () {
 
       var innerServer = fork(path.join(__dirname, 'helpers', 'server_process.js'))
       var client = mqtt.connect({ port: 3000, host: 'localhost', keepalive: 1 })
-      client.on('error', function (e) { /* Do Nothing */ })
+      client.on('error', nop)
       client.once('connect', function () {
         innerServer.kill('SIGINT') // mocks server shutdown
 
@@ -394,6 +396,8 @@ describe('MqttClient', function () {
         connectTimeout: 350,
         reconnectPeriod: 300
       })
+
+      client.on('error', nop)
 
       server2.on('client', function (c) {
         client.publish('hello', 'world', { qos: 1 }, function () {
