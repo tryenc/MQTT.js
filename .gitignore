@@ -8,6 +8,7 @@ Session.vim
 *~
 npm-debug.log
 dist/
+.nyc_output
 yarn.lock
 coverage
 .idea/*
