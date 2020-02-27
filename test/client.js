@@ -30,7 +30,7 @@ function connOnlyServer () {
 /**
  * Test server
  */
-function buildServer (fastFlag) {
+function serverBuilder (fastFlag) {
   var handler = function (client) {
     client.on('auth', function (packet) {
       var rc = 'reasonCode'
@@ -114,7 +114,7 @@ function buildServer (fastFlag) {
   }
 }
 
-server = buildServer().listen(port)
+server = serverBuilder().listen(port)
 
 describe('MqttClient', function () {
   describe('creating', function () {
@@ -136,8 +136,10 @@ describe('MqttClient', function () {
     })
   })
 
+
+
   var config = { protocol: 'mqtt', port: port }
-  abstractClientTests(buildServer, config)
+  abstractClientTests(serverBuilder, config)
 
   describe('message ids', function () {
     it('should increment the message id', function () {

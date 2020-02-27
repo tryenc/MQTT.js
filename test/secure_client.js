@@ -70,14 +70,24 @@ var serverListener = function (client) {
   })
 }
 
+var serverBuilder = function () {
+  var server = new MqttSecureServer({
+    key: fs.readFileSync(KEY),
+    cert: fs.readFileSync(CERT)
+  }, serverListener)
+
+  return server
+}
+
 var server = new MqttSecureServer({
   key: fs.readFileSync(KEY),
   cert: fs.readFileSync(CERT)
 }, serverListener).listen(port)
 
+
 describe('MqttSecureClient', function () {
-  var config = { protocol: 'mqtts', port: port, rejectUnauthorized: false }
-  abstractClientTests(server, config)
+  var config = { protocol: 'mqtts', port: port, rejectUnauthorized: false } 
+  abstractClientTests(serverBuilder, config)
 
   describe('with secure parameters', function () {
     it('should validate successfully the CA', function (done) {
