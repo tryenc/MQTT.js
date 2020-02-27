@@ -12,6 +12,8 @@ var Store = require('./../lib/store')
 var assert = require('chai').assert
 var port = 9876
 
+function nop () {}
+
 module.exports = function (server, config) {
   var version = config.protocolVersion || 4
   function connect (opts) {
