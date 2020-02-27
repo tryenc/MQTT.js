@@ -277,7 +277,7 @@ describe('MqttClient', function () {
 
       var innerServer = fork(path.join(__dirname, 'helpers', 'server_process.js'))
       var client = mqtt.connect({ port: 3000, host: 'localhost', keepalive: 1 })
-
+      client.on('error', function (e) { /* Do Nothing */ })
       client.once('connect', function () {
         innerServer.kill('SIGINT') // mocks server shutdown
 
@@ -482,7 +482,7 @@ describe('MqttClient', function () {
       var server2 = net.createServer(function (stream) {
         var client = new Connection(stream)
 
-        client.on('error', function () {})
+        client.on('error', function (e) { /* do nothing */ })
         client.on('connect', function (packet) {
           client.connack({returnCode: 0})
           client.destroy()
