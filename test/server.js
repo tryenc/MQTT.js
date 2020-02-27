@@ -66,7 +66,7 @@ class MqttSecureServer extends tls.Server {
       opts = {}
     }
 
-    static.setupConnection = setupConnection
+    setupConnection = setupConnection
 
     if (listener) {
       this.on('client', listener)

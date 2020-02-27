@@ -11,8 +11,6 @@ var WRONG_CERT = path.join(__dirname, 'helpers', 'wrong-cert.pem')
 var MqttSecureServer = require('./server').MqttSecureServer
 var assert = require('chai').assert
 
-
-
 var serverListener = function (client) {
   // this is the Server's MQTT Client
   client.on('connect', function (packet) {

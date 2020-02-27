@@ -16,7 +16,7 @@ function nop () {}
 
 module.exports = function (serverBuilder, config) {
   var version = config.protocolVersion || 4
-  var server 
+  var server
   function connect (opts) {
     opts = xtend(config, opts)
     return mqtt.connect(opts)
