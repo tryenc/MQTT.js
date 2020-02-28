@@ -280,22 +280,22 @@ describe('MqttClient', function () {
   })
 
   describe('reconnecting', function () {
-    it.only('should attempt to reconnect once server is down', function (done) {
+    it('should attempt to reconnect once server is down', function (done) {
       this.timeout(30000)
 
-      var innerServer = fork(path.join(__dirname, 'helpers', 'server_process.js'))
+      var innerServer = fork(path.join(__dirname, 'helpers', 'server_process.js'), {execArgv:['--inspect']})
+      innerServer.on('close', (code) => {
+        done('child process closed with code %d', code)
+      })
 
-      // var innerServer = new MqttServer(function (client) {
-      //   client.on('connect', function () {
-      //     client.connack({ returnCode: 0 })
-      //   })
-      // }).listen(3001, 'localhost')
+      innerServer.on('exit', (code) => {
+        done('child process exited with code %d', code)
+      })
 
-      var client = mqtt.connect({ port: 3000, host: 'myhost.local', keepalive: 1 })
+      var client = mqtt.connect({ port: 3000, host: 'localhost', keepalive: 1 })
       client.on('error', function (err) { console.log(err) })
       client.once('connect', function () {
         innerServer.kill('SIGINT') // mocks server shutdown
-        // innerServer.close()
         client.once('close', function () {
           should.exist(client.reconnectTimer)
           client.end()
