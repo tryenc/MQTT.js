@@ -2,7 +2,7 @@
 
 var mqtt = require('..')
 var should = require('should')
-var fork = require('child_process').fork
+const { fork } = require('child_process')
 var path = require('path')
 var abstractClientTests = require('./abstract_client')
 var net = require('net')
@@ -114,14 +114,13 @@ function serverBuilder (fastFlag) {
   }
 }
 
-
 describe('MqttClient', function () {
   before(function () {
-    server = serverBuilder().listen(port)
+    server = serverBuilder().listen(port + 15)
   })
 
   after(function () {
-    server.socket.close()
+    server.close()
   })
   describe('creating', function () {
     it('should allow instantiation of MqttClient without the \'new\' operator', function (done) {
@@ -281,15 +280,22 @@ describe('MqttClient', function () {
   })
 
   describe('reconnecting', function () {
-    it('should attempt to reconnect once server is down', function (done) {
-      this.timeout(15000)
+    it.only('should attempt to reconnect once server is down', function (done) {
+      this.timeout(30000)
 
       var innerServer = fork(path.join(__dirname, 'helpers', 'server_process.js'))
-      var client = mqtt.connect({ port: 3000, host: 'localhost', keepalive: 1 })
-      client.on('error', nop)
+
+      // var innerServer = new MqttServer(function (client) {
+      //   client.on('connect', function () {
+      //     client.connack({ returnCode: 0 })
+      //   })
+      // }).listen(3001, 'localhost')
+
+      var client = mqtt.connect({ port: 3000, host: 'myhost.local', keepalive: 1 })
+      client.on('error', function (err) { console.log(err) })
       client.once('connect', function () {
         innerServer.kill('SIGINT') // mocks server shutdown
-
+        // innerServer.close()
         client.once('close', function () {
           should.exist(client.reconnectTimer)
           client.end()
@@ -618,9 +624,11 @@ describe('MqttClient', function () {
   })
 
   describe('MQTT 5.0', function () {
+    // abstract client tests should be passed in the serverBuilder to be called
+    var config = { protocol: 'mqtt', port: port + 114, protocolVersion: 5, properties: { maximumPacketSize: 200 } }
+    abstractClientTests(serverBuilder, config)
+
     var server = serverBuilder().listen(port + 115)
-    var config = { protocol: 'mqtt', port: port + 115, protocolVersion: 5, properties: { maximumPacketSize: 200 } }
-    abstractClientTests(server, config)
     it('should has Auth method with Auth data', function (done) {
       this.timeout(5000)
       var opts = {host: 'localhost', port: port + 115, protocolVersion: 5, properties: { authenticationData: Buffer.from([1, 2, 3, 4]) }}

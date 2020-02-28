@@ -64,7 +64,6 @@ class MqttSecureServer extends tls.Server {
     super(opts)
 
     this.on('secureConnection', function (socket) {
-      this.socket = socket
       var that = this
       var connection = new Connection(socket, function () {
         that.emit('client', connection)

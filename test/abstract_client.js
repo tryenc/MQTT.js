@@ -11,12 +11,12 @@ var MqttServer = require('./server').MqttServer
 var Store = require('./../lib/store')
 var assert = require('chai').assert
 var port = 9876
+var server
 
 function nop () {}
 
 module.exports = function (serverBuilder, config) {
   var version = config.protocolVersion || 4
-  var server
   function connect (opts) {
     opts = xtend(config, opts)
     return mqtt.connect(opts)
@@ -24,6 +24,10 @@ module.exports = function (serverBuilder, config) {
 
   before('Build MQTT Server to communicate with Client', function () {
     server = serverBuilder().listen(config.port)
+  })
+
+  after('CLose MQTT Server', function () {
+    server.close()
   })
 
   describe('closing', function () {
