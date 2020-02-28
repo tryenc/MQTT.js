@@ -285,11 +285,11 @@ describe('MqttClient', function () {
 
       var innerServer = fork(path.join(__dirname, 'helpers', 'server_process.js'), { execArgv: ['--inspect'] })
       innerServer.on('close', (code) => {
-        done('child process closed with code %d', code)
+        done(util.format('child process closed with code %d', code))
       })
 
       innerServer.on('exit', (code) => {
-        done('child process exited with code %d', code)
+        done(util.format('child process exited with code %d', code))
       })
 
       var client = mqtt.connect({ port: 3000, host: 'localhost', keepalive: 1 })
