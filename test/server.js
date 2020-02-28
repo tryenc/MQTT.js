@@ -12,7 +12,7 @@ var Connection = require('mqtt-connection')
 class MqttServer extends net.Server {
   constructor (listener) {
     super()
-    
+
     var that = this
     this.on('connection', function (duplex) {
       var connection = new Connection(duplex, function () {
@@ -63,7 +63,7 @@ class MqttSecureServer extends tls.Server {
     // sets a listener for the 'connection' event
     super(opts)
 
-    this.on('connection', function (socket) {
+    this.on('secureConnection', function (socket) {
       this.socket = socket
       var that = this
       var connection = new Connection(socket, function () {
@@ -74,8 +74,6 @@ class MqttSecureServer extends tls.Server {
     if (listener) {
       this.on('client', listener)
     }
-
-    this.on('secureConnection', )
   }
 
   static setupConnection (duplex) {
