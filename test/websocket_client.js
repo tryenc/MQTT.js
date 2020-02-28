@@ -26,70 +26,7 @@ function attachWebsocketServer (wsServer) {
   return wsServer
 }
 
-attachWebsocketServer(server)
-
-serverBuilder = function () {
-  var server = http.createServer()
-  attachWebsocketServer(server)
-  server.on('client', function (client) {
-    client.on('connect', function (packet) {
-      if (packet.clientId === 'invalid') {
-        client.connack({ returnCode: 2 })
-      } else {
-        server.emit('connect', client)
-        client.connack({returnCode: 0})
-      }
-    })
-
-    client.on('publish', function (packet) {
-      setImmediate(function () {
-        switch (packet.qos) {
-          case 0:
-            break
-          case 1:
-            client.puback(packet)
-            break
-          case 2:
-            client.pubrec(packet)
-            break
-        }
-      })
-    })
-
-    client.on('pubrel', function (packet) {
-      client.pubcomp(packet)
-    })
-
-    client.on('pubrec', function (packet) {
-      client.pubrel(packet)
-    })
-
-    client.on('pubcomp', function () {
-      // Nothing to be done
-    })
-
-    client.on('subscribe', function (packet) {
-      client.suback({
-        messageId: packet.messageId,
-        granted: packet.subscriptions.map(function (e) {
-          return e.qos
-        })
-      })
-    })
-
-    client.on('unsubscribe', function (packet) {
-      client.unsuback(packet)
-    })
-
-    client.on('pingreq', function () {
-      client.pingresp()
-    })
-  })
-
-  return server
-}
-
-server.on('client', function (client) {
+function attachClientEventHandlers (client) {
   client.on('connect', function (packet) {
     if (packet.clientId === 'invalid') {
       client.connack({ returnCode: 2 })
@@ -142,7 +79,18 @@ server.on('client', function (client) {
   client.on('pingreq', function () {
     client.pingresp()
   })
-}).listen(port)
+}
+
+attachWebsocketServer(server)
+
+var serverBuilder = function () {
+  var server = http.createServer()
+  attachWebsocketServer(server)
+  server.on('client', attachClientEventHandlers)
+  return server
+}
+
+server.on('client', attachClientEventHandlers).listen(port)
 
 describe('Websocket Client', function () {
   var baseConfig = { protocol: 'ws', port: port }

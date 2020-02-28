@@ -84,9 +84,8 @@ var server = new MqttSecureServer({
   cert: fs.readFileSync(CERT)
 }, serverListener).listen(port)
 
-
 describe('MqttSecureClient', function () {
-  var config = { protocol: 'mqtts', port: port, rejectUnauthorized: false } 
+  var config = { protocol: 'mqtts', port: port, rejectUnauthorized: false }
   abstractClientTests(serverBuilder, config)
 
   describe('with secure parameters', function () {

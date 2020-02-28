@@ -59,7 +59,7 @@ class MqttSecureServer extends tls.Server {
 
     serverThat = this
 
-    // sets a listener for the 'connection' event 
+    // sets a listener for the 'connection' event
     super(opts, function (socket) {
       serverThat.socket = socket
       var that = this

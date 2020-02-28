@@ -136,8 +136,6 @@ describe('MqttClient', function () {
     })
   })
 
-
-
   var config = { protocol: 'mqtt', port: port }
   abstractClientTests(serverBuilder, config)
 
@@ -297,8 +295,8 @@ describe('MqttClient', function () {
     it('should reconnect to multiple host-ports-protocol combinations if servers is passed', function (done) {
       this.timeout(15000)
 
-      var server = buildServer(true).listen(port + 41)
-      var server2 = buildServer(true).listen(port + 42)
+      var server = serverBuilder(true).listen(port + 41)
+      var server2 = serverBuilder(true).listen(port + 42)
 
       server2.on('listening', function () {
         var client = mqtt.connect({
@@ -392,7 +390,7 @@ describe('MqttClient', function () {
     it('should not keep requeueing the first message when offline', function (done) {
       this.timeout(2500)
 
-      var server2 = buildServer().listen(port + 45)
+      var server2 = serverBuilder().listen(port + 45)
       var client = mqtt.connect({
         port: port + 45,
         host: 'localhost',
@@ -614,7 +612,7 @@ describe('MqttClient', function () {
   })
 
   describe('MQTT 5.0', function () {
-    var server = buildServer().listen(port + 115)
+    var server = serverBuilder().listen(port + 115)
     var config = { protocol: 'mqtt', port: port + 115, protocolVersion: 5, properties: { maximumPacketSize: 200 } }
     abstractClientTests(server, config)
     it('should has Auth method with Auth data', function (done) {
