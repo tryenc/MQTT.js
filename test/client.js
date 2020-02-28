@@ -142,7 +142,7 @@ describe('MqttClient', function () {
     })
   })
 
-  var config = { protocol: 'mqtt', port: port }
+  var config = { protocol: 'mqtt', port: port + 1 }
   abstractClientTests(serverBuilder, config)
 
   describe('message ids', function () {
@@ -286,15 +286,18 @@ describe('MqttClient', function () {
 
       var innerServer = fork(path.join(__dirname, 'helpers', 'server_process.js'), { execArgv: ['--inspect'] })
       innerServer.on('close', (code) => {
-        done(util.format('child process closed with code %d', code))
+        if (code) {
+          done(util.format('child process closed with code %d', code))
+        }
       })
 
       innerServer.on('exit', (code) => {
-        done(util.format('child process exited with code %d', code))
+        if (code) {
+          done(util.format('child process exited with code %d', code))
+        }
       })
 
       var client = mqtt.connect({ port: 3000, host: 'localhost', keepalive: 1 })
-      client.on('error', function (err) { console.log(err) })
       client.once('connect', function () {
         innerServer.kill('SIGINT') // mocks server shutdown
         client.once('close', function () {
