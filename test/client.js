@@ -114,9 +114,15 @@ function serverBuilder (fastFlag) {
   }
 }
 
-server = serverBuilder().listen(port)
 
 describe('MqttClient', function () {
+  before(function () {
+    server = serverBuilder().listen(port)
+  })
+
+  after(function () {
+    server.socket.close()
+  })
   describe('creating', function () {
     it('should allow instantiation of MqttClient without the \'new\' operator', function (done) {
       should(function () {
