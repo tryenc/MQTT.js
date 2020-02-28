@@ -283,7 +283,7 @@ describe('MqttClient', function () {
     it('should attempt to reconnect once server is down', function (done) {
       this.timeout(30000)
 
-      var innerServer = fork(path.join(__dirname, 'helpers', 'server_process.js'), { execArgv:['--inspect'] })
+      var innerServer = fork(path.join(__dirname, 'helpers', 'server_process.js'), { execArgv: ['--inspect'] })
       innerServer.on('close', (code) => {
         done('child process closed with code %d', code)
       })
