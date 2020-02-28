@@ -116,7 +116,7 @@ function serverBuilder (fastFlag) {
 
 describe('MqttClient', function () {
   before(function () {
-    server = serverBuilder().listen(port + 15)
+    server = serverBuilder().listen(port)
   })
 
   after(function () {

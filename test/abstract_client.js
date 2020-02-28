@@ -23,7 +23,7 @@ module.exports = function (serverBuilder, config) {
   }
 
   before('Build MQTT Server to communicate with Client', function () {
-    server = serverBuilder().listen(config.port)
+    server = serverBuilder().listen(config.port + 1)
   })
 
   after('CLose MQTT Server', function () {
