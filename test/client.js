@@ -13,6 +13,7 @@ var Duplex = require('readable-stream').Duplex
 var Connection = require('mqtt-connection')
 var MqttServer = require('./server').MqttServer
 var MqttServerNoWait = require('./server').MqttServerNoWait
+var util = require('util')
 
 var port = 9876
 var server
