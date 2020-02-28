@@ -18,8 +18,6 @@ var util = require('util')
 var port = 9876
 var server
 
-function nop () {}
-
 function connOnlyServer () {
   return new MqttServer(function (client) {
     client.on('connect', function (packet) {
@@ -413,8 +411,6 @@ describe('MqttClient', function () {
         connectTimeout: 350,
         reconnectPeriod: 300
       })
-
-      client.on('error', nop)
 
       server2.on('client', function (c) {
         client.publish('hello', 'world', { qos: 1 }, function () {
