@@ -4,7 +4,7 @@ var net = require('net')
 var tls = require('tls')
 var Connection = require('mqtt-connection')
 
-/*
+/**
  * MqttServer
  *
  * @param {Function} listener - fired on client connection
@@ -12,9 +12,11 @@ var Connection = require('mqtt-connection')
 class MqttServer extends net.Server {
   constructor (listener) {
     super()
+    this.connectionList = []
 
     var that = this
     this.on('connection', function (duplex) {
+      this.connectionList.push(duplex)
       var connection = new Connection(duplex, function () {
         that.emit('client', connection)
       })
@@ -26,7 +28,7 @@ class MqttServer extends net.Server {
   }
 }
 
-/*
+/**
  * MqttServerNoWait (w/o waiting for initialization)
  *
  * @param {Function} listener - fired on client connection
@@ -34,8 +36,10 @@ class MqttServer extends net.Server {
 class MqttServerNoWait extends net.Server {
   constructor (listener) {
     super()
+    this.connectionList = []
 
     this.on('connection', function (duplex) {
+      this.connectionList.push(duplex)
       var connection = new Connection(duplex)
       // do not wait for connection to return to send it to the client.
       this.emit('client', connection)
@@ -62,8 +66,10 @@ class MqttSecureServer extends tls.Server {
 
     // sets a listener for the 'connection' event
     super(opts)
+    this.connectionList = []
 
     this.on('secureConnection', function (socket) {
+      this.connectionList.push(duplex)
       var that = this
       var connection = new Connection(socket, function () {
         that.emit('client', connection)

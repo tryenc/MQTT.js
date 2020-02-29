@@ -3,30 +3,26 @@
 /**
  * Testing dependencies
  */
-var should = require('should')
+var should = require('chai').should
 var sinon = require('sinon')
 var mqtt = require('../')
 var xtend = require('xtend')
 var MqttServer = require('./server').MqttServer
 var Store = require('./../lib/store')
 var assert = require('chai').assert
-var port = 9876
-var server
+var ports = require('./helpers/port_list')
 
-module.exports = function (serverBuilder, config) {
+module.exports = function (server, config) {
+  /************************** SETUP **************************/
   var version = config.protocolVersion || 4
+  var config = config
+
   function connect (opts) {
     opts = xtend(config, opts)
     return mqtt.connect(opts)
   }
 
-  before('Build MQTT Server to communicate with Client', function () {
-    server = serverBuilder().listen(config.port)
-  })
-
-  after('Close MQTT Server', function () {
-    server.close()
-  })
+  /************************** TESTS **************************/
 
   describe('closing', function () {
     it('should emit close if stream closes', function (done) {
@@ -61,13 +57,12 @@ module.exports = function (serverBuilder, config) {
       var client = connect()
 
       client.once('close', function () {
-        should.not.exist(client.pingTimer)
-        client.end()
-        done()
+        assert.notExists(client.pingTimer)
+        client.end(true, done)
       })
 
       client.once('connect', function () {
-        should.exist(client.pingTimer)
+        assert.exists(client.pingTimer)
         client.stream.end()
       })
     })
@@ -156,10 +151,11 @@ module.exports = function (serverBuilder, config) {
       var client = connect()
 
       client.once('connect', function () {
-        should.exist(client.pingTimer)
-        client.end()
-        should.not.exist(client.pingTimer)
-        done()
+        assert.exists(client.pingTimer)
+        client.end(() => {
+          assert.notExists(client.pingTimer)
+          done()
+        })
       })
     })
 
@@ -214,8 +210,8 @@ module.exports = function (serverBuilder, config) {
       client.on('error', done)
 
       server.once('client', function () {
-        client.end()
         done()
+        client.end()
       })
     })
 
@@ -225,9 +221,9 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('connect', function (packet) {
-          packet.clientId.should.match(/mqttjs.*/)
+          assert.include(packet.clientId, 'mqttjs')
+          client.end(done)
           serverClient.disconnect()
-          done()
         })
       })
     })
@@ -238,7 +234,7 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('connect', function (packet) {
-          packet.clean.should.be.true()
+          assert.strictEqual(packet.clean, true)
           serverClient.disconnect()
           done()
         })
@@ -253,7 +249,7 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('connect', function (packet) {
-          packet.clientId.should.match(/testclient/)
+          assert.include(packet.cliendId, 'testclient')
           serverClient.disconnect()
           done()
         })
@@ -268,10 +264,10 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('connect', function (packet) {
-          packet.clientId.should.match(/testclient/)
-          packet.clean.should.be.false()
+          assert.include(packet.cliendId, 'testclient')
+          assert.isFalse(packet.clean)
           serverClient.disconnect()
-          done()
+          client.end(true, done)
         })
       })
     })
@@ -284,6 +280,7 @@ module.exports = function (serverBuilder, config) {
           // done(new Error('should have thrown'));
         })
       } catch (err) {
+        assert.strictEqual(err.message, 'Missing clientId for unclean clients')
         done()
       }
     })
@@ -296,7 +293,7 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('connect', function (packet) {
-          packet.clientId.should.match(/testclient/)
+          assert.include(packet.cliendId, 'testclient')
           serverClient.disconnect()
           done()
         })
@@ -306,8 +303,7 @@ module.exports = function (serverBuilder, config) {
     it('should emit connect', function (done) {
       var client = connect()
       client.once('connect', function () {
-        client.end()
-        done()
+        client.end(true, done)
       })
       client.once('error', done)
     })
@@ -325,9 +321,9 @@ module.exports = function (serverBuilder, config) {
 
       var client = connect()
       client.once('connect', function (packet) {
-        should(packet.sessionPresent).be.equal(true)
+        assert.strictEqual(packet.sessionPresent, true)
         client.once('connect', function (packet) {
-          should(packet.sessionPresent).be.equal(false)
+          assert.strictEqual(packet.sessionPresent, true)
           client.end()
           done()
         })
@@ -353,7 +349,7 @@ module.exports = function (serverBuilder, config) {
       })
       client.once('error', function (error) {
         var value = version === 5 ? 128 : 2
-        should(error.code).be.equal(value) // code for clientID identifer rejected
+        assert.strictEqual(error.code, value) // code for clientID identifer rejected
         client.end()
         done()
       })
@@ -374,10 +370,12 @@ module.exports = function (serverBuilder, config) {
       var client1 = connect()
       var client2 = connect()
 
-      client1.options.clientId.should.not.equal(client2.options.clientId)
-      client1.end(true)
-      client2.end(true)
-      setImmediate(done)
+      assert.notStrictEqual(client1.options.clientId, client2.options.clientId)
+      client1.end(true, () => {
+        client2.end(true, () => {
+          done()
+        })
+      })
     })
   })
 
@@ -448,8 +446,8 @@ module.exports = function (serverBuilder, config) {
           if (err) {
             return done(err)
           }
-          granted2.should.Array()
-          granted2.should.be.empty()
+          assert.isArray(granted2)
+          assert.isEmpty(granted2)
           done()
         })
       })
@@ -522,10 +520,10 @@ module.exports = function (serverBuilder, config) {
       client.publish('test', 'test')
       client.subscribe('test')
       client.unsubscribe('test')
-      client.queue.length.should.equal(3)
+      assert.strictEqual(client.queue, 3)
 
       client.once('connect', function () {
-        client.queue.length.should.equal(0)
+        assert.strictEqual(client.queue, 0)
         setTimeout(function () {
           client.end(true, done)
         }, 10)
@@ -536,7 +534,7 @@ module.exports = function (serverBuilder, config) {
       var client = connect({queueQoSZero: false})
 
       client.publish('test', 'test', {qos: 0})
-      client.queue.length.should.equal(0)
+      assert.strictEqual(client.queue.length, 0)
       client.on('connect', function () {
         setTimeout(function () {
           client.end(true, done)
@@ -551,7 +549,7 @@ module.exports = function (serverBuilder, config) {
       client.publish('test', 'test', {qos: 2})
       client.subscribe('test')
       client.unsubscribe('test')
-      client.queue.length.should.equal(2)
+      assert.strictEqual(client.queue.length, 2)
       client.on('connect', function () {
         setTimeout(function () {
           client.end(true, done)
@@ -564,26 +562,26 @@ module.exports = function (serverBuilder, config) {
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
       var publishCount = 0
-      var server2 = new MqttServer(function (c) {
-        c.on('connect', function () {
-          c.connack({returnCode: 0})
+      var server2 = new MqttServer(function (serverClient) {
+        serverClient.on('connect', function () {
+          serverClient.connack({returnCode: 0})
         })
-        c.on('publish', function (packet) {
+        serverClient.on('publish', function (packet) {
           if (packet.qos !== 0) {
-            c.puback({messageId: packet.messageId})
+            serverClient.puback({messageId: packet.messageId})
           }
           switch (publishCount++) {
             case 0:
-              packet.payload.toString().should.equal('payload1')
+              assert.strictEqual(packet.payload.toString(), 'payload1')
               break
             case 1:
-              packet.payload.toString().should.equal('payload2')
+              assert.strictEqual(packet.payload.toString(), 'payload2')
               break
             case 2:
-              packet.payload.toString().should.equal('payload3')
+              assert.strictEqual(packet.payload.toString(), 'payload3')
               break
             case 3:
-              packet.payload.toString().should.equal('payload4')
+              assert.strictEqual(packet.payload.toString(), 'payload4')
               server2.close()
               done()
               break
@@ -591,9 +589,9 @@ module.exports = function (serverBuilder, config) {
         })
       })
 
-      server2.listen(port + 50, function () {
+      server2.listen(ports.PORTAND50, function () {
         client = mqtt.connect({
-          port: port + 50,
+          port: ports.PORTAND50,
           host: 'localhost',
           clean: false,
           clientId: 'cid1',
@@ -626,7 +624,7 @@ module.exports = function (serverBuilder, config) {
       })
 
       client.on('connect', function () {
-        called.should.equal(true)
+        assert.isTrue(called)
         setTimeout(function () {
           client.end(true, done)
         }, 10)
@@ -643,7 +641,7 @@ module.exports = function (serverBuilder, config) {
         })
         client.publish('test', 'test', function () {
           client.end(false, function () {
-            subscribeCalled.should.be.equal(true)
+            assert.strictEqual(subscribeCalled, true)
             done()
           })
         })
@@ -658,7 +656,7 @@ module.exports = function (serverBuilder, config) {
         client.subscribe('test')
         client.publish('test', 'test', { qos: 1 }, function () {
           client.end(false, function () {
-            messageReceived.should.equal(true)
+            assert.strictEqual(messageReceived, true)
             done()
           })
         })
@@ -702,7 +700,7 @@ module.exports = function (serverBuilder, config) {
       var client = connect()
       var payload = 'test'
       var topic = 'test'
-
+      // don't wait on connect to send publish
       client.publish(topic, payload)
 
       server.on('client', onClient)
@@ -713,10 +711,10 @@ module.exports = function (serverBuilder, config) {
         })
 
         serverClient.once('publish', function (packet) {
-          packet.topic.should.equal(topic)
-          packet.payload.toString().should.equal(payload)
-          packet.qos.should.equal(0)
-          packet.retain.should.equal(false)
+          assert.strictEqual(packet.topic, topic)
+          assert.strictEqual(packet.payload.toString(), payload)
+          assert.strictEqual(packet.qos, 0)
+          assert.strictEqual(packet.retain, false)
           client.end(true, done)
         })
       }
@@ -726,21 +724,26 @@ module.exports = function (serverBuilder, config) {
       var client = connect()
       var payload = 'test'
       var topic = 'test'
-
+      // block on connect before sending publish
       client.on('connect', function () {
         client.publish(topic, payload)
       })
 
-      server.once('client', function (serverClient) {
-        serverClient.once('publish', function (packet) {
-          packet.topic.should.equal(topic)
-          packet.payload.toString().should.equal(payload)
-          packet.qos.should.equal(0)
-          packet.retain.should.equal(false)
-          client.end()
-          done()
+      server.on('client', onClient)
+
+      function onClient (serverClient) {
+        serverClient.once('connect', function () {
+          server.removeListener('client', onClient)
         })
-      })
+
+        serverClient.once('publish', function (packet) {
+          assert.strictEqual(packet.topic, topic)
+          assert.strictEqual(packet.payload.toString(), payload)
+          assert.strictEqual(packet.qos, 0)
+          assert.strictEqual(packet.retain, false)
+          client.end(true, done)
+        })
+      }
     })
 
     it('should publish a message (retain, offline)', function (done) {
@@ -755,13 +758,12 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('publish', function (packet) {
-          packet.topic.should.equal(topic)
-          packet.payload.toString().should.equal(payload)
-          packet.qos.should.equal(0)
-          packet.retain.should.equal(true)
-          called.should.equal(true)
-          client.end()
-          done()
+          assert.strictEqual(packet.topic, topic)
+          assert.strictEqual(packet.payload.toString(), payload)
+          assert.strictEqual(packet.qos, 0)
+          assert.strictEqual(packet.retain, true)
+          assert.strictEqual(called, true)
+          client.end(true, done)
         })
       })
     })
@@ -769,16 +771,17 @@ module.exports = function (serverBuilder, config) {
     it('should emit a packetsend event', function (done) {
       var client = connect()
       var payload = 'test_payload'
-      var testTopic = 'testTopic'
+      var topic = 'testTopic'
 
       client.on('packetsend', function (packet) {
         if (packet.cmd === 'publish') {
-          packet.qos.should.equal(0)
-          packet.topic.should.equal(testTopic)
-          packet.payload.should.equal(payload)
-          packet.retain.should.equal(false)
-          client.end()
-          done()
+          assert.strictEqual(packet.topic, topic)
+          assert.strictEqual(packet.payload.toString(), payload)
+          assert.strictEqual(packet.qos, 0)
+          assert.strictEqual(packet.retain, false)
+          client.end(true, done)
+        } else {
+          done(new Error('packet.cmd was not publish!'))
         }
       })
 
@@ -800,13 +803,12 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('publish', function (packet) {
-          packet.topic.should.equal(topic)
-          packet.payload.toString().should.equal(payload)
-          packet.qos.should.equal(opts.qos, 'incorrect qos')
-          packet.retain.should.equal(opts.retain, 'incorrect ret')
-          packet.dup.should.equal(false, 'incorrect dup')
-          client.end()
-          done()
+          assert.strictEqual(packet.topic, topic)
+          assert.strictEqual(packet.payload.toString(), payload)
+          assert.strictEqual(packet.qos, opts.qos, 'incorrect qos')
+          assert.strictEqual(packet.retain, opts.retain, 'incorrect ret')
+          assert.strictEqual(packet.dup, false, 'incorrect dup')
+          client.end(true, done)
         })
       })
     })
@@ -823,13 +825,12 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('publish', function (packet) {
-          packet.topic.should.equal(topic)
-          packet.payload.toString().should.equal(payload)
-          packet.qos.should.equal(defaultOpts.qos, 'incorrect qos')
-          packet.retain.should.equal(defaultOpts.retain, 'incorrect ret')
-          packet.dup.should.equal(defaultOpts.dup, 'incorrect dup')
-          client.end()
-          done()
+          assert.strictEqual(packet.topic, topic)
+          assert.strictEqual(packet.payload.toString(), payload)
+          assert.strictEqual(packet.qos, defaultOpts.qos, 'incorrect qos')
+          assert.strictEqual(packet.retain, defaultOpts.retain, 'incorrect ret')
+          assert.strictEqual(packet.dup, defaultOpts.dup, 'incorrect dup')
+          client.end(true, done)
         })
       })
     })
@@ -850,11 +851,12 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('publish', function (packet) {
-          packet.topic.should.equal(topic)
-          packet.payload.toString().should.equal(payload)
-          packet.dup.should.equal(opts.dup, 'incorrect dup')
-          client.end()
-          done()
+          assert.strictEqual(packet.topic, topic)
+          assert.strictEqual(packet.payload.toString(), payload)
+          assert.strictEqual(packet.qos, opts.qos, 'incorrect qos')
+          assert.strictEqual(packet.retain, opts.retain, 'incorrect ret')
+          assert.strictEqual(packet.dup, opts.dup, 'incorrect dup')
+          client.end(true, done)
         })
       })
     })
@@ -962,11 +964,10 @@ module.exports = function (serverBuilder, config) {
         setTimeout(function () {
           handleMessageCount++
           // next message event should not emit until handleMessage completes
-          handleMessageCount.should.equal(messageEventCount)
+          assert.strictEqual(handleMessageCount, messageEventCount)
           if (handleMessageCount === 10) {
             setTimeout(function () {
-              client.end()
-              done()
+              client.end(true, done)
             })
           }
           callback()
@@ -983,8 +984,9 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.on('offline', function () {
-          client.end()
-          done('error went offline... didnt see this happen')
+          client.end(true, function () {
+            done('error went offline... didnt see this happen')
+          })
         })
 
         serverClient.on('subscribe', function () {
@@ -1000,16 +1002,11 @@ module.exports = function (serverBuilder, config) {
       })
     }
 
-    it('should publish 10 QoS 0 and receive them only when `handleMessage` finishes', function (done) {
-      testQosHandleMessage(0, done)
-    })
-
-    it('should publish 10 QoS 1 and receive them only when `handleMessage` finishes', function (done) {
-      testQosHandleMessage(1, done)
-    })
-
-    it('should publish 10 QoS 2 and receive them only when `handleMessage` finishes', function (done) {
-      testQosHandleMessage(2, done)
+    var qosTests = [ 0, 1, 2 ]
+    qosTests.forEach(function (QoS) {
+      it('should publish 10 QoS ' + QoS + 'and receive them only when `handleMessage` finishes', function (done) {
+        testQosHandleMessage(QoS, done)
+      })
     })
 
     it('should not send a `puback` if the execution of `handleMessage` fails for messages with QoS `1`', function (done) {
@@ -1027,10 +1024,10 @@ module.exports = function (serverBuilder, config) {
         payload: 'test',
         qos: 1
       }, function (err) {
-        should.exist(err)
+        assert.exists(err)
       })
 
-      client._sendPacket.callCount.should.equal(0)
+      assert.strictEqual(client._sendPacket.callCount, 0)
       client.end()
       client.on('connect', function () { done() })
     })
@@ -1050,109 +1047,28 @@ module.exports = function (serverBuilder, config) {
           payload: 'test',
           qos: 1
         })
-        done()
+        client.end(true, done)
       } catch (err) {
-        done(err)
-      } finally {
-        client.end()
+        client.end(true, () => { done(err) })
       }
-    })
-
-    it('should handle error with async incoming store in QoS 2 `handlePublish` method', function (done) {
-      function AsyncStore () {
-        if (!(this instanceof AsyncStore)) {
-          return new AsyncStore()
-        }
-      }
-      AsyncStore.prototype.put = function (packet, cb) {
-        process.nextTick(function () {
-          cb(new Error('Error'))
-        })
-      }
-      var store = new AsyncStore()
-      var client = connect({incomingStore: store})
-
-      client._handlePublish({
-        messageId: 1,
-        topic: 'test',
-        payload: 'test',
-        qos: 2
-      }, function () {
-        done()
-        client.end()
-      })
-    })
-
-    it('should handle error with async incoming store in QoS 2 `handlePubrel` method', function (done) {
-      function AsyncStore () {
-        if (!(this instanceof AsyncStore)) {
-          return new AsyncStore()
-        }
-      }
-      AsyncStore.prototype.del = function (packet, cb) {
-        process.nextTick(function () {
-          cb(new Error('Error'))
-        })
-      }
-      AsyncStore.prototype.get = function (packet, cb) {
-        process.nextTick(function () {
-          cb(null, {cmd: 'publish'})
-        })
-      }
-      var store = new AsyncStore()
-      var client = connect({incomingStore: store})
-
-      client._handlePubrel({
-        messageId: 1,
-        qos: 2
-      }, function () {
-        done()
-        client.end()
-      })
-    })
-
-    it('should handle success with async incoming store in QoS 2 `handlePubrel` method', function (done) {
-      var delComplete = false
-      function AsyncStore () {
-        if (!(this instanceof AsyncStore)) {
-          return new AsyncStore()
-        }
-      }
-      AsyncStore.prototype.del = function (packet, cb) {
-        process.nextTick(function () {
-          delComplete = true
-          cb(null)
-        })
-      }
-      AsyncStore.prototype.get = function (packet, cb) {
-        process.nextTick(function () {
-          cb(null, {cmd: 'publish'})
-        })
-      }
-      var store = new AsyncStore()
-      var client = connect({incomingStore: store})
-
-      client._handlePubrel({
-        messageId: 1,
-        qos: 2
-      }, function () {
-        delComplete.should.equal(true)
-        done()
-        client.end()
-      })
     })
 
     it('should handle error with async incoming store in QoS 1 `handlePublish` method', function (done) {
-      function AsyncStore () {
-        if (!(this instanceof AsyncStore)) {
-          return new AsyncStore()
+      class AsyncStore {
+        constructor() {
+        }
+
+        put (packet, cb) {
+          process.nextTick(function () {
+            cb(null, 'Error')
+          })
+        }
+
+        close (cb) {
+            cb()
         }
       }
-      AsyncStore.prototype.put = function (packet, cb) {
-        process.nextTick(function () {
-          cb(null, 'Error')
-        })
-      }
+
       var store = new AsyncStore()
       var client = connect({incomingStore: store})
 
@@ -1162,8 +1078,119 @@ module.exports = function (serverBuilder, config) {
         payload: 'test',
         qos: 1
       }, function () {
-        done()
         client.end()
+        done()
+      })
+    })
+
+    it('should handle error with async incoming store in QoS 2 `handlePublish` method', function (done) {
+      class AsyncStore {
+        constructor() {
+        }
+
+        put (packet, cb) {
+          process.nextTick(function () {
+            cb(null, 'Error')
+          })
+        }
+
+        close (cb) {
+            cb()
+        }
+      }
+
+      var store = new AsyncStore()
+      var client = connect({incomingStore: store})
+
+      client._handlePublish({
+        messageId: 1,
+        topic: 'test',
+        payload: 'test',
+        qos: 2
+      }, function () {
+        client.end()
+        done()
+      })
+    })
+
+    it('should handle error with async incoming store in QoS 2 `handlePubrel` method', function (done) {
+      class AsyncStore {
+        constructor() {
+        }
+
+        put (packet, cb) {
+          process.nextTick(function () {
+            cb(null, 'Error')
+          })
+        }
+
+        del (packet, cb) {
+          process.nextTick(function () {
+            cb(new Error('Error'))
+          })
+        }
+
+        get (packet, cb) {
+          process.nextTick(function () {
+            cb(null, {cmd: 'publish'})
+          })
+        }
+
+        close (cb) {
+            cb()
+        }
+      }
+
+      var store = new AsyncStore()
+      var client = connect({incomingStore: store})
+
+      client._handlePubrel({
+        messageId: 1,
+        qos: 2
+      }, function () {
+        client.end(true, done)
+      })
+    })
+
+    it('should handle success with async incoming store in QoS 2 `handlePubrel` method', function (done) {
+      var delComplete = false
+      class AsyncStore {
+        constructor() {
+        }
+
+        put (packet, cb) {
+          process.nextTick(function () {
+            cb(null, 'Error')
+          })
+        }
+
+        del (packet, cb) {
+          process.nextTick(function () {
+            delComplete = true
+            cb(null)
+          })
+        }
+
+        get (packet, cb) {
+          process.nextTick(function () {
+            cb(null, {cmd: 'publish'})
+          })
+        }
+
+        close (cb) {
+            cb()
+        }
+      }
+
+      var store = new AsyncStore()
+      var client = connect({incomingStore: store})
+
+      client._handlePubrel({
+        messageId: 1,
+        qos: 2
+      }, function () {
+        assert.isTrue(delComplete)
+        client.end(true, done)
       })
     })
 
@@ -1195,10 +1222,10 @@ module.exports = function (serverBuilder, config) {
 
           client._sendPacket = sinon.spy()
           client._handlePubrel({cmd: 'pubrel', messageId: messageId}, function (err) {
-            should.exist(err)
+            assert.exists(err)
           })
-          client._sendPacket.callCount.should.equal(0)
-          done()
+          assert.strictEqual(client._sendPacket.callCount, 0)
+          client.end(true, done)
         })
       })
     })
@@ -1227,13 +1254,12 @@ module.exports = function (serverBuilder, config) {
           qos: qos,
           cmd: 'publish'
         }, function () {
+          var err
           try {
             client._handlePubrel({cmd: 'pubrel', messageId: messageId})
-            done()
+            client.end(true, done)
           } catch (err) {
-            done(err)
-          } finally {
-            client.end()
+            client.end(true, () => { done(err) })
           }
         })
       })
@@ -1245,26 +1271,26 @@ module.exports = function (serverBuilder, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new MqttServer(function (c) {
+      var server2 = new MqttServer(function (serverClient) {
         // errors are not interesting for this test
         // but they might happen on some platforms
-        c.on('error', function () {})
+        serverClient.on('error', function () {})
 
-        c.on('connect', function (packet) {
-          c.connack({returnCode: 0})
+        serverClient.on('connect', function (packet) {
+          serverClient.connack({returnCode: 0})
         })
-        c.on('publish', function (packet) {
-          c.puback({messageId: packet.messageId})
+        serverClient.on('publish', function (packet) {
+          serverClient.puback({messageId: packet.messageId})
           if (reconnect) {
             switch (publishCount++) {
               case 0:
-                packet.payload.toString().should.equal('payload1')
+                assert.strictEqual(packet.payload.toString(), 'payload1')
                 break
               case 1:
-                packet.payload.toString().should.equal('payload2')
+                assert.strictEqual(packet.payload.toString(), 'payload2')
                 break
               case 2:
-                packet.payload.toString().should.equal('payload3')
+                assert.strictEqual(packet.payload.toString(), 'payload3')
                 server2.close()
                 done()
                 break
@@ -1273,9 +1299,9 @@ module.exports = function (serverBuilder, config) {
         })
       })
 
-      server2.listen(port + 50, function () {
+      server2.listen(ports.PORTAND50, function () {
         client = mqtt.connect({
-          port: port + 50,
+          port: ports.PORTAND50,
           host: 'localhost',
           clean: false,
           clientId: 'cid1',
@@ -1322,30 +1348,31 @@ module.exports = function (serverBuilder, config) {
         client.publish('test', 'test', {qos: qos, cbStorePut: cbStorePut}, function (err) {
           if (err) done(err)
           callbacks.push('publish')
-          should.deepEqual(callbacks, expected)
-          done()
+          assert.deepEqual(callbacks, expected)
+          client.end(true, done)
         })
-        client.end()
       })
     }
 
-    it('should not call cbStorePut when publishing message with QoS `0` and clean `true`', function (done) {
-      testCallbackStorePutByQoS(0, true, ['publish'], done)
-    })
-    it('should not call cbStorePut when publishing message with QoS `0` and clean `false`', function (done) {
-      testCallbackStorePutByQoS(0, false, ['publish'], done)
-    })
-    it('should call cbStorePut before publish completes when publishing message with QoS `1` and clean `true`', function (done) {
-      testCallbackStorePutByQoS(1, true, ['storeput', 'publish'], done)
-    })
-    it('should call cbStorePut before publish completes when publishing message with QoS `1` and clean `false`', function (done) {
-      testCallbackStorePutByQoS(1, false, ['storeput', 'publish'], done)
-    })
-    it('should call cbStorePut before publish completes when publishing message with QoS `2` and clean `true`', function (done) {
-      testCallbackStorePutByQoS(2, true, ['storeput', 'publish'], done)
-    })
-    it('should call cbStorePut before publish completes when publishing message with QoS `2` and clean `false`', function (done) {
-      testCallbackStorePutByQoS(2, false, ['storeput', 'publish'], done)
+    var callbackStorePutByQoSParameters = [
+      {args: [0, true], expected: ['publish']},
+      {args: [0, false], expected: ['publish']},
+      {args: [1, true], expected: ['storeput', 'publish']},
+      {args: [1, false], expected: ['storeput', 'publish']},
+      {args: [2, true], expected: ['storeput', 'publish']},
+      {args: [2, false], expected: ['storeput', 'publish']},
+    ]
+
+    callbackStorePutByQoSParameters.forEach(function(test) {
+      if (test.args[0] === 0)  { // QoS 0
+        it('should not call cbStorePut when publishing message with QoS `' + test.args[0] + '` and clean `' + test.args[1] + '`', function (done) {
+          testCallbackStorePutByQoS(test.args[0], test.args[1], test.expected, done)
+        })
+      } else { // QoS 1 and 2
+        it('should call cbStorePut before publish completes when publishing message with QoS `' + test.args[0] + '` and clean `' + test.args[1] + '`', function (done) {
+          testCallbackStorePutByQoS(test.args[0], test.args[1], test.expected, done)
+        })
+      }
     })
   })
 
@@ -1357,9 +1384,8 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('unsubscribe', function (packet) {
-          packet.unsubscriptions.should.containEql('test')
-          client.end()
-          done()
+          assert.include(packet.unsubscriptions, 'test')
+          client.end(true, done)
         })
       })
     })
@@ -1374,9 +1400,8 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('unsubscribe', function (packet) {
-          packet.unsubscriptions.should.containEql(topic)
-          client.end()
-          done()
+          assert.include(packet.unsubscriptions, topic)
+          client.end(true, done)
         })
       })
     })
@@ -1391,8 +1416,7 @@ module.exports = function (serverBuilder, config) {
 
       client.on('packetsend', function (packet) {
         if (packet.cmd === 'subscribe') {
-          client.end()
-          done()
+          client.end(true, done)
         }
       })
     })
@@ -1407,8 +1431,7 @@ module.exports = function (serverBuilder, config) {
 
       client.on('packetreceive', function (packet) {
         if (packet.cmd === 'suback') {
-          client.end()
-          done()
+          client.end(true, done)
         }
       })
     })
@@ -1423,8 +1446,8 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('unsubscribe', function (packet) {
-          packet.unsubscriptions.should.eql(topics)
-          done()
+          assert.strictEqual(packet.unsubscriptions, topics)
+          client.end(true, done)
         })
       })
     })
@@ -1440,7 +1463,7 @@ module.exports = function (serverBuilder, config) {
       server.once('client', function (serverClient) {
         serverClient.once('unsubscribe', function (packet) {
           serverClient.unsuback(packet)
-          client.end()
+          client.end(true, done)
         })
       })
     })
@@ -1455,9 +1478,8 @@ module.exports = function (serverBuilder, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('unsubscribe', function (packet) {
-          packet.unsubscriptions.should.containEql(topic)
-          client.end()
-          done()
+          assert.include(packet.unsubscriptions, topic)
+          client.end(true, done)
         })
       })
     })
@@ -1482,16 +1504,15 @@ module.exports = function (serverBuilder, config) {
 
       client.once('connect', function () {
         clock.tick(interval * 1000)
-        client._checkPing.callCount.should.equal(1)
+        assert.strictEqual(client._checkPing.callCount, 1)
 
         clock.tick(interval * 1000)
-        client._checkPing.callCount.should.equal(2)
+        assert.strictEqual(client._checkPing.callCount, 2)
 
         clock.tick(interval * 1000)
-        client._checkPing.callCount.should.equal(3)
+        assert.strictEqual(client._checkPing.callCount, 3)
 
-        client.end()
-        done()
+        client.end(true, done)
       })
     })
 
@@ -1506,9 +1527,9 @@ module.exports = function (serverBuilder, config) {
         clock.tick(intervalMs - 1)
         client.publish('foo', 'bar')
         clock.tick(2)
-        client._checkPing.callCount.should.equal(0)
-        client.end()
-        done()
+
+        assert.strictEqual(client._checkPing.callCount, 0)
+        client.end(true, done)
       })
     })
 
@@ -1526,9 +1547,9 @@ module.exports = function (serverBuilder, config) {
         clock.tick(intervalMs - 1)
         client.publish('foo', 'bar')
         clock.tick(2)
-        client._checkPing.callCount.should.equal(1)
-        client.end()
-        done()
+
+        assert.strictEqual(client._checkPing.callCount, 1)
+        client.end(true, done)
       })
     })
   })
@@ -1537,18 +1558,16 @@ module.exports = function (serverBuilder, config) {
     it('should set a ping timer', function (done) {
       var client = connect({keepalive: 3})
       client.once('connect', function () {
-        should.exist(client.pingTimer)
-        client.end()
-        done()
+        assert.exists(client.pingTimer)
+        client.end(true, done)
       })
     })
 
     it('should not set a ping timer keepalive=0', function (done) {
       var client = connect({keepalive: 0})
       client.on('connect', function () {
-        should.not.exist(client.pingTimer)
-        client.end()
-        done()
+        assert.notExists(client.pingTimer)
+        client.end(true, done)
       })
     })
 
@@ -1560,8 +1579,7 @@ module.exports = function (serverBuilder, config) {
 
       client.once('connect', function () {
         client.once('connect', function () {
-          client.end()
-          done()
+          client.end(true, done)
         })
       })
     })
@@ -1582,15 +1600,15 @@ module.exports = function (serverBuilder, config) {
 
         client.publish('foo', 'bar')
         setTimeout(function () {
-          client._checkPing.callCount.should.equal(0)
+          assert.strictEqual(client._checkPing.callCount, 0)
           client.publish('foo', 'bar')
 
           setTimeout(function () {
-            client._checkPing.callCount.should.equal(0)
+            assert.strictEqual(client._checkPing.callCount, 0)
             client.publish('foo', 'bar')
 
             setTimeout(function () {
-              client._checkPing.callCount.should.equal(0)
+              assert.strictEqual(client._checkPing.callCount, 0)
               done()
             }, 75)
           }, 75)
@@ -1631,7 +1649,7 @@ module.exports = function (serverBuilder, config) {
             result.rap = false
             result.rh = 0
           }
-          packet.subscriptions.should.containEql(result)
+          assert.includes(packet.subscriptions, result)
           done()
         })
       })
@@ -1688,8 +1706,8 @@ module.exports = function (serverBuilder, config) {
             return result
           })
 
-          packet.subscriptions.should.eql(expected)
-          done()
+          assert.strictEqual(packet.subscriptions, expected)
+          client.end(true, done)
         })
       })
     })
@@ -1725,8 +1743,8 @@ module.exports = function (serverBuilder, config) {
             }
           }
 
-          packet.subscriptions.should.eql(expected)
-          done()
+          assert.strictEqual(packet.subscriptions, expected)
+          client.end(true, done)
         })
       })
     })
@@ -1753,7 +1771,7 @@ module.exports = function (serverBuilder, config) {
             expected[0].rh = 0
           }
 
-          packet.subscriptions.should.eql(expected)
+          assert.strictEqual(packet.subscriptions, expected)
           done()
         })
       })
@@ -1779,8 +1797,9 @@ module.exports = function (serverBuilder, config) {
             result.rap = false
             result.rh = 0
           }
-          packet.subscriptions.should.containEql(result)
-          done()
+
+          assert.include(packet.subscriptions, result)
+          client.end(true, done)
         })
       })
     })
@@ -1794,7 +1813,7 @@ module.exports = function (serverBuilder, config) {
           if (err) {
             done(err)
           } else {
-            should.exist(granted, 'granted not given')
+            assert.exists(granted, 'granted not given')
             var result = {topic: 'test', qos: 2}
             if (version === 5) {
               result.nl = false
@@ -1802,7 +1821,7 @@ module.exports = function (serverBuilder, config) {
               result.rh = 0
               result.properties = undefined
             }
-            granted.should.containEql(result)
+            assert.include(granted, result)
             done()
           }
         })
@@ -1815,9 +1834,9 @@ module.exports = function (serverBuilder, config) {
       client.once('connect', function () {
         client.end(true, function () {
           client.subscribe(topic, {qos: 2}, function (err, granted) {
-            should.not.exist(granted, 'granted given')
-            should.exist(err, 'no error given')
-            done()
+            assert.notExists(granted, 'granted given')
+            assert.exists(err, 'no error given')
+            client.end(true, done)
           })
         })
       })
@@ -1830,9 +1849,9 @@ module.exports = function (serverBuilder, config) {
       client.once('connect', function () {
         client.end(true, function () {
           client.subscribe(topic, function (err, granted) {
-            should.not.exist(granted, 'granted given')
-            should.exist(err, 'no error given')
-            done()
+            assert.notExists(granted, 'granted given')
+            assert.exists(err, 'no error given')
+            client.end(true, done)
           })
         })
       })
@@ -1857,8 +1876,8 @@ module.exports = function (serverBuilder, config) {
             result.rap = false
             result.rh = 0
           }
-          packet.subscriptions.should.containEql(result)
-          done()
+          assert.include(packet.subscriptions, result)
+          client.end(true, done)
         })
       })
     })
@@ -1877,11 +1896,10 @@ module.exports = function (serverBuilder, config) {
 
       client.subscribe(testPacket.topic)
       client.once('message', function (topic, message, packet) {
-        topic.should.equal(testPacket.topic)
-        message.toString().should.equal(testPacket.payload)
-        packet.should.equal(packet)
-        client.end()
-        done()
+        assert.strictEqual(topic, testPacket.topic)
+        assert.strictEqual(message.toString(), testPacket.payload)
+        assert.strictEqual(packet, testPacket)
+        client.end(true, done)
       })
 
       server.once('client', function (serverClient) {
@@ -1904,12 +1922,11 @@ module.exports = function (serverBuilder, config) {
       client.subscribe(testPacket.topic)
       client.on('packetreceive', function (packet) {
         if (packet.cmd === 'publish') {
-          packet.qos.should.equal(1)
-          packet.topic.should.equal(testPacket.topic)
-          packet.payload.toString().should.equal(testPacket.payload)
-          packet.retain.should.equal(true)
-          client.end()
-          done()
+          assert.strictEqual(packet.qos, 1)
+          assert.strictEqual(packet.topic, testPacket.topic)
+          assert.strictEqual(packet.payload.toString(), testPacket.payload)
+          assert.strictEqual(packet.retain, true)
+          client.end(true, done)
         }
       })
 
@@ -1932,11 +1949,11 @@ module.exports = function (serverBuilder, config) {
 
       client.subscribe(testPacket.topic)
       client.once('message', function (topic, message, packet) {
-        topic.should.equal(testPacket.topic)
-        message.should.be.an.instanceOf(Buffer)
-        message.toString().should.equal(testPacket.payload)
-        packet.should.equal(packet)
-        done()
+        assert.strictEqual(topic, testPacket.topic)
+        assert.instanceOf(message, Buffer)
+        assert.strictEqual(message.toString(), testPacket.payload)
+        assert.strictEqual(packet, testPacket)
+        client.end(true, done)
       })
 
       server.once('client', function (serverClient) {
@@ -1960,10 +1977,10 @@ module.exports = function (serverBuilder, config) {
 
       client.subscribe(testPacket.topic)
       client.once('message', function (topic, message, packet) {
-        topic.should.equal(testPacket.topic)
-        message.toString().should.equal(testPacket.payload)
-        packet.should.equal(packet)
-        done()
+        assert.strictEqual(topic, testPacket.topic)
+        assert.strictEqual(message.toString(), testPacket.payload)
+        assert.strictEqual(packet, testPacket)
+        client.end(true, done)
       })
 
       server.once('client', function (serverClient) {
@@ -1987,10 +2004,10 @@ module.exports = function (serverBuilder, config) {
 
       client.subscribe(testPacket.topic)
       client.on('message', function (topic, message, packet) {
-        topic.should.equal(testPacket.topic)
-        message.toString().should.equal(testPacket.payload)
-        packet.should.equal(packet)
-        done()
+        assert.strictEqual(topic, testPacket.topic)
+        assert.strictEqual(message.toString(), testPacket.payload)
+        assert.strictEqual(packet, testPacket)
+        client.end(true, done)
       })
 
       server.once('client', function (serverClient) {
@@ -2014,11 +2031,11 @@ module.exports = function (serverBuilder, config) {
 
       client.subscribe(testPacket.topic)
       client.once('message', function (topic, message, packet) {
-        topic.should.equal(testPacket.topic)
-        message.should.be.an.instanceOf(Buffer)
-        message.toString().should.equal(testPacket.payload)
-        packet.should.equal(packet)
-        done()
+        assert.strictEqual(topic, testPacket.topic)
+        assert.instanceOf(message, Buffer)
+        assert.strictEqual(message.toString(), testPacket.payload)
+        assert.strictEqual(packet, testPacket)
+        client.end(true, done)
       })
 
       server.once('client', function (serverClient) {
@@ -2047,7 +2064,7 @@ module.exports = function (serverBuilder, config) {
             qos: 0,
             retain: false
           })
-          done()
+          client.end(true, done)
         })
       })
     })
@@ -2073,8 +2090,8 @@ module.exports = function (serverBuilder, config) {
         })
 
         serverClient.once('puback', function (packet) {
-          packet.messageId.should.equal(mid)
-          done()
+          assert.strictEqual(packet.messageid, mid)
+          client.end(true, done)
         })
       })
     })
@@ -2099,13 +2116,12 @@ module.exports = function (serverBuilder, config) {
             // expected, but not specifically part of QOS 2 semantics
             break
           case 'publish':
-            pubrecReceived.should.be.false()
-            pubrelReceived.should.be.false()
+            assert.isFalse(pubrecReceived)
             publishReceived = true
             break
-          case 'pubrel':
-            publishReceived.should.be.true()
-            pubrecReceived.should.be.true()
+            case 'pubrel':
+            assert.isTrue(publishReceived)
+            assert.isTrue(pubrecReceived)
             pubrelReceived = true
             break
           default:
@@ -2124,18 +2140,18 @@ module.exports = function (serverBuilder, config) {
         })
 
         serverClient.on('pubrec', function () {
-          publishReceived.should.be.true()
-          pubrelReceived.should.be.false()
+          assert.isTrue(publishReceived)
+          assert.isFalse(pubrecReceived)
           pubrecReceived = true
         })
 
         serverClient.once('pubcomp', function () {
           client.removeAllListeners()
           serverClient.removeAllListeners()
-          publishReceived.should.be.true()
-          pubrecReceived.should.be.true()
-          pubrelReceived.should.be.true()
-          done()
+          assert.isTrue(publishReceived)
+          assert.isTrue(pubrecReceived)
+          assert.isTrue(pubrelReceived)
+          client.end(true, done)
         })
       })
     })
@@ -2152,7 +2168,7 @@ module.exports = function (serverBuilder, config) {
 
       client.on('packetreceive', (packet) => {
         if (packet.cmd === 'pubrel') {
-          should(client.incomingStore._inflights.size).be.equal(1)
+          assert.strictEqual(client.incomingStore._inflights.size, 1)
         }
       })
 
@@ -2167,9 +2183,9 @@ module.exports = function (serverBuilder, config) {
         })
 
         serverClient.once('pubcomp', function () {
-          should(client.incomingStore._inflights.size).be.equal(0)
+          assert.strictEqual(client.incomingStore._inflights.size, 0)
           client.removeAllListeners()
-          done()
+          client.end(true, done)
         })
       })
     })
@@ -2206,7 +2222,7 @@ module.exports = function (serverBuilder, config) {
           case 'subscribe':
             const suback = {cmd: 'suback', messageId: packet.messageId, granted: [2]}
             client._handlePacket(suback, function (err) {
-              should(err).not.be.ok()
+              assert.isNotOk(err)
             })
             break
           case 'pubrec':
@@ -2216,11 +2232,11 @@ module.exports = function (serverBuilder, config) {
               pubcompCount++
               if (pubcompCount === 2) {
                 // end the test once the client has gone through two rounds of replying to pubrel messages
-                pubrelCount.should.be.exactly(2)
-                handleMessageCount.should.be.exactly(1)
-                emitMessageCount.should.be.exactly(1)
+                assert.strictEqual(pubrelCount, 2)
+                assert.strictEqual(handleMessageCount, 1)
+                assert.strictEqual(emitMessageCount, 1)
                 client._sendPacket = origSendPacket
-                done()
+                client.end(true, done)
                 break
               }
             }
@@ -2230,9 +2246,11 @@ module.exports = function (serverBuilder, config) {
             pubrelCount++
             client._handlePacket(pubrel, function (err) {
               if (shouldSendFail) {
-                should(err).be.ok()
+                assert.exists(err)
+                assert.instanceOf(err, Error)
               } else {
-                should(err).not.be.ok()
+                assert.notExists(err)
+
               }
             })
             break
@@ -2243,7 +2261,7 @@ module.exports = function (serverBuilder, config) {
         client.subscribe(testTopic, {qos: 2})
         const publish = {cmd: 'publish', topic: testTopic, payload: testMessage, qos: 2, messageId: mid}
         client._handlePacket(publish, function (err) {
-          should(err).not.be.ok()
+          assert.notExists(err)
         })
       })
     }
@@ -2261,8 +2279,10 @@ module.exports = function (serverBuilder, config) {
     it('should mark the client disconnecting if #end called', function () {
       var client = connect()
 
-      client.end()
-      client.disconnecting.should.eql(true)
+      client.end(true, function (err) {
+        assert.isTrue(client.disconnecting)
+        done(err)
+       })
     })
 
     it('should reconnect after stream disconnect', function (done) {
@@ -2275,8 +2295,7 @@ module.exports = function (serverBuilder, config) {
           client.stream.end()
           tryReconnect = false
         } else {
-          client.end()
-          done()
+          client.end(true, done)
         }
       })
     })
@@ -2295,9 +2314,8 @@ module.exports = function (serverBuilder, config) {
           client.stream.end()
           tryReconnect = false
         } else {
-          reconnectEvent.should.equal(true)
-          client.end()
-          done()
+          assert.isTrue(reconnectEvent)
+          client.end(true, done)
         }
       })
     })
@@ -2317,9 +2335,8 @@ module.exports = function (serverBuilder, config) {
           client.stream.end()
           tryReconnect = false
         } else {
-          offlineEvent.should.equal(true)
-          client.end()
-          done()
+          assert.isTrue(offlineEvent)
+          client.end(true, done)
         }
       })
     })
@@ -2337,43 +2354,46 @@ module.exports = function (serverBuilder, config) {
       var client = connect()
 
       client.once('connect', function () {
-        should.not.exist(client.reconnectTimer)
+        assert.notExists(client.reconnectTimer)
         client.stream.end()
       })
 
       client.once('close', function () {
-        should.exist(client.reconnectTimer)
-        client.end()
-        done()
+        assert.exists(client.reconnectTimer)
+        client.end(true, done)
       })
     })
 
-    it('should allow specification of a reconnect period', function (done) {
-      var end
-      var period = 200
-      var client = connect({reconnectPeriod: period})
-      var reconnect = false
-      var start = Date.now()
+    var reconnectPeriodTests = [ {period: 200}, {period: 2000}, {period: 4000} ]
+    reconnectPeriodTests.forEach((test) => {
+      it('should allow specification of a reconnect period', function (done) {
+        var end
+        var client = connect({reconnectPeriod: test.period})
+        var reconnect = false
+        var start = Date.now()
 
-      client.on('connect', function () {
-        if (!reconnect) {
-          client.stream.end()
-          reconnect = true
-        } else {
-          client.end()
-          end = Date.now()
-          if (end - start >= period) {
-            // Connected in about 2 seconds, that's good enough
-            done()
+        client.on('connect', function () {
+          if (!reconnect) {
+            client.stream.end()
+            reconnect = true
           } else {
-            done(new Error('Strange reconnect period'))
+            end = Date.now()
+            client.end(() => {
+              if (end - start >= period - 200 && end - start <= period + 200) {
+                // give the connection a 200 ms slush window
+                done()
+              } else {
+                done(new Error('Strange reconnect period'))
+              }
+            })
           }
-        }
+        })
       })
     })
 
     it('should always cleanup successfully on reconnection', function (done) {
       var client = connect({host: 'this_hostname_should_not_exist', connectTimeout: 0, reconnectPeriod: 1})
+      // bind client.end so that when it is called it is automatically passed in the done callback
       setTimeout(client.end.bind(client, done), 50)
     })
 
@@ -2404,8 +2424,7 @@ module.exports = function (serverBuilder, config) {
 
       function check () {
         if (serverPublished && clientCalledBack) {
-          client.end()
-          done()
+          client.end(true, done)
         }
       }
     })
@@ -2418,10 +2437,11 @@ module.exports = function (serverBuilder, config) {
         serverClient.on('connect', function () {
           setImmediate(function () {
             serverClient.stream.destroy()
-            client.end()
-            serverPublished.should.be.false()
-            clientCalledBack.should.be.false()
-            done()
+            client.end(function () {
+              assert.isFalse(serverPublished)
+              assert.isFalse(clientCalledBack)
+              done()
+            })
           })
         })
         server.once('client', function (serverClientNew) {
@@ -2464,8 +2484,7 @@ module.exports = function (serverBuilder, config) {
 
       function check () {
         if (serverPublished && clientCalledBack) {
-          client.end()
-          done()
+          client.end(true, done)
         }
       }
     })
@@ -2491,16 +2510,15 @@ module.exports = function (serverBuilder, config) {
 
       client.publish('hello', 'world', { qos: 1 }, function (err) {
         clientCalledBack = true
-        should(err.message).be.equal('Message removed')
+        assert.strictEqual(err.message, 'Message removed')
       })
-      should(Object.keys(client.outgoing).length).be.equal(1)
-      should(client.outgoingStore._inflights.size).be.equal(1)
+      assert.strictEqual(Object.keys(client.outgoing).length, 1)
+      assert.strictEqual(client.outgoing._inflights.size, 1)
       client.removeOutgoingMessage(client.getLastMessageId())
-      should(Object.keys(client.outgoing).length).be.equal(0)
-      should(client.outgoingStore._inflights.size).be.equal(0)
-      clientCalledBack.should.be.true()
-      client.end()
-      done()
+      assert.strictEqual(Object.keys(client.outgoing).length, 0)
+      assert.strictEqual(client.outgoingStore._inflights.size, 0)
+      assert.isTrue(clientCalledBack)
+      client.end(true, done)
     })
 
     it('should not resend in-flight QoS 2 removed publish messages from the client', function (done) {
@@ -2524,16 +2542,15 @@ module.exports = function (serverBuilder, config) {
 
       client.publish('hello', 'world', { qos: 2 }, function (err) {
         clientCalledBack = true
-        should(err.message).be.equal('Message removed')
+        assert.strictEqual(err.message, 'Message removed')
       })
-      should(Object.keys(client.outgoing).length).be.equal(1)
-      should(client.outgoingStore._inflights.size).be.equal(1)
+      assert.strictEqual(Object.keys(client.outgoing).length, 1)
+      assert.strictEqual(client.outgoingStore._inflights.size, 1)
       client.removeOutgoingMessage(client.getLastMessageId())
-      should(Object.keys(client.outgoing).length).be.equal(0)
-      should(client.outgoingStore._inflights.size).be.equal(0)
-      clientCalledBack.should.be.true()
-      client.end()
-      done()
+      assert.strictEqual(Object.keys(client.outgoing).length, 0)
+      assert.strictEqual(client.outgoingStore._inflights.size, 0)
+      assert.isTrue(clientCalledBack)
+      client.end(true, done)
     })
 
     it('should resubscribe when reconnecting', function (done) {
@@ -2552,15 +2569,14 @@ module.exports = function (serverBuilder, config) {
 
             server.once('client', function (serverClient) {
               serverClient.on('subscribe', function () {
-                client.end()
-                done()
+                client.end(true, done)
               })
             })
           })
 
           tryReconnect = false
         } else {
-          reconnectEvent.should.equal(true)
+          assert.isTrue(reconnectEvent)
         }
       })
     })
@@ -2588,9 +2604,9 @@ module.exports = function (serverBuilder, config) {
 
           tryReconnect = false
         } else {
-          reconnectEvent.should.equal(true)
-          should(Object.keys(client._resubscribeTopics).length).be.equal(0)
-          done()
+          assert.isTrue(reconnectEvent)
+          assert.strictEqual(Object.keys(client._resubscribeTopics).length, 0)
+          client.end(true, done)
         }
       })
     })
@@ -2598,24 +2614,24 @@ module.exports = function (serverBuilder, config) {
     it('should not resubscribe when reconnecting if suback is error', function (done) {
       var tryReconnect = true
       var reconnectEvent = false
-      var server2 = new MqttServer(function (c) {
-        c.on('connect', function (packet) {
-          c.connack({returnCode: 0})
+      var server2 = new MqttServer(function (serverClient) {
+        serverClient.on('connect', function (packet) {
+          serverClient.connack({returnCode: 0})
         })
-        c.on('subscribe', function (packet) {
-          c.suback({
+        serverClient.on('subscribe', function (packet) {
+          serverClient.suback({
             messageId: packet.messageId,
             granted: packet.subscriptions.map(function (e) {
               return e.qos | 0x80
             })
           })
-          c.pubrel({ messageId: Math.floor(Math.random() * 9000) + 1000 })
+          serverClient.pubrel({ messageId: Math.floor(Math.random() * 9000) + 1000 })
         })
       })
 
-      server2.listen(port + 49, function () {
+      server2.listen(ports.PORTAND49, function () {
         var client = mqtt.connect({
-          port: port + 49,
+          port: ports.PORTAND49,
           host: 'localhost',
           reconnectPeriod: 100
         })
@@ -2637,10 +2653,10 @@ module.exports = function (serverBuilder, config) {
             })
             tryReconnect = false
           } else {
-            reconnectEvent.should.equal(true)
-            should(Object.keys(client._resubscribeTopics).length).be.equal(0)
+            assert.isTrue(reconnectEvent)
+            assert.strictEqual(Object.keys(client._resubscribeTopics).length, 0)
             server2.close()
-            done()
+            client.end(true, done)
           }
         })
       })
@@ -2651,23 +2667,23 @@ module.exports = function (serverBuilder, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new MqttServer(function (c) {
-        c.on('connect', function (packet) {
-          c.connack({returnCode: 0})
+      var server2 = new MqttServer(function (serverClient) {
+        serverClient.on('connect', function (packet) {
+          serverClient.connack({returnCode: 0})
           if (reconnect) {
-            c.pubrel({ messageId: 1 })
+            serverClient.pubrel({ messageId: 1 })
           }
         })
-        c.on('subscribe', function (packet) {
-          c.suback({
+        serverClient.on('subscribe', function (packet) {
+          serverClient.suback({
             messageId: packet.messageId,
             granted: packet.subscriptions.map(function (e) {
               return e.qos
             })
           })
-          c.publish({ topic: 'topic', payload: 'payload', qos: 2, messageId: 1, retain: false })
+          serverClient.publish({ topic: 'topic', payload: 'payload', qos: 2, messageId: 1, retain: false })
         })
-        c.on('pubrec', function (packet) {
+        serverClient.on('pubrec', function (packet) {
           client.end(false, function () {
             client.reconnect({
               incomingStore: incomingStore,
@@ -2675,16 +2691,17 @@ module.exports = function (serverBuilder, config) {
             })
           })
         })
-        c.on('pubcomp', function (packet) {
-          client.end()
-          server2.close()
-          done()
+        serverClient.on('pubcomp', function (packet) {
+          client.end(true, () => {
+            server2.close()
+            done()
+          })
         })
       })
 
-      server2.listen(port + 50, function () {
+      server2.listen(ports.PORTAND50, function () {
         client = mqtt.connect({
-          port: port + 50,
+          port: ports.PORTAND50,
           host: 'localhost',
           clean: false,
           clientId: 'cid1',
@@ -2701,8 +2718,8 @@ module.exports = function (serverBuilder, config) {
           }
         })
         client.on('message', function (topic, message) {
-          topic.should.equal('topic')
-          message.toString().should.equal('payload')
+          assert.strictEqual(topic, 'topic')
+          assert.strictEqual(message.toString(), 'payload')
         })
       })
     })
@@ -2710,27 +2727,27 @@ module.exports = function (serverBuilder, config) {
     it('should clear outgoing if close from server', function (done) {
       var reconnect = false
       var client = {}
-      var server2 = new MqttServer(function (c) {
-        c.on('connect', function (packet) {
-          c.connack({returnCode: 0})
+      var server2 = new MqttServer(function (serverClient) {
+        serverClient.on('connect', function (packet) {
+          serverClient.connack({returnCode: 0})
         })
-        c.on('subscribe', function (packet) {
+        serverClient.on('subscribe', function (packet) {
           if (reconnect) {
-            c.suback({
+            serverClient.suback({
               messageId: packet.messageId,
               granted: packet.subscriptions.map(function (e) {
                 return e.qos
               })
             })
           } else {
-            c.destroy()
+            serverClient.destroy()
           }
         })
       })
 
-      server2.listen(port + 50, function () {
+      server2.listen(ports.PORTAND50, function () {
         client = mqtt.connect({
-          port: port + 50,
+          port: ports.PORTAND50,
           host: 'localhost',
           clean: true,
           clientId: 'cid1',
@@ -2750,7 +2767,7 @@ module.exports = function (serverBuilder, config) {
             server2.close()
             done()
           } else {
-            Object.keys(client.outgoing).length.should.equal(0)
+            assert.strictEqual(Object.keys(client.outgoing).length, 0)
             reconnect = true
             client.reconnect()
           }
@@ -2763,14 +2780,14 @@ module.exports = function (serverBuilder, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new MqttServer(function (c) {
-        c.on('connect', function (packet) {
-          c.connack({returnCode: 0})
+      var server2 = new MqttServer(function (serverClient) {
+        serverClient.on('connect', function (packet) {
+          serverClient.connack({returnCode: 0})
         })
-        c.on('publish', function (packet) {
+        serverClient.on('publish', function (packet) {
           if (reconnect) {
             server2.close()
-            done()
+            client.end(true, done)
           } else {
             client.end(true, function () {
               client.reconnect({
@@ -2783,9 +2800,9 @@ module.exports = function (serverBuilder, config) {
         })
       })
 
-      server2.listen(port + 50, function () {
+      server2.listen(ports.PORTAND50, function () {
         client = mqtt.connect({
-          port: port + 50,
+          port: ports.PORTAND50,
           host: 'localhost',
           clean: false,
           clientId: 'cid1',
@@ -2808,14 +2825,14 @@ module.exports = function (serverBuilder, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new MqttServer(function (c) {
-        c.on('connect', function (packet) {
-          c.connack({returnCode: 0})
+      var server2 = new MqttServer(function (serverClient) {
+        serverClient.on('connect', function (packet) {
+          serverClient.connack({returnCode: 0})
         })
-        c.on('publish', function (packet) {
+        serverClient.on('publish', function (packet) {
           if (reconnect) {
             server2.close()
-            done()
+            client.end(true, done)
           } else {
             client.end(true, function () {
               client.reconnect({
@@ -2828,9 +2845,9 @@ module.exports = function (serverBuilder, config) {
         })
       })
 
-      server2.listen(port + 50, function () {
+      server2.listen(ports.PORTAND50, function () {
         client = mqtt.connect({
-          port: port + 50,
+          port: ports.PORTAND50,
           host: 'localhost',
           clean: false,
           clientId: 'cid1',
@@ -2853,19 +2870,19 @@ module.exports = function (serverBuilder, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new MqttServer(function (c) {
-        c.on('connect', function (packet) {
-          c.connack({returnCode: 0})
+      var server2 = new MqttServer(function (serverClient) {
+        serverClient.on('connect', function (packet) {
+          serverClient.connack({returnCode: 0})
         })
-        c.on('publish', function (packet) {
+        serverClient.on('publish', function (packet) {
           if (!reconnect) {
-            c.pubrec({messageId: packet.messageId})
+            serverClient.pubrec({messageId: packet.messageId})
           }
         })
-        c.on('pubrel', function () {
+        serverClient.on('pubrel', function () {
           if (reconnect) {
             server2.close()
-            done()
+            client.end(true, done)
           } else {
             client.end(true, function () {
               client.reconnect({
@@ -2878,9 +2895,9 @@ module.exports = function (serverBuilder, config) {
         })
       })
 
-      server2.listen(port + 50, function () {
+      server2.listen(ports.PORTAND50, function () {
         client = mqtt.connect({
-          port: port + 50,
+          port: ports.PORTAND50,
           host: 'localhost',
           clean: false,
           clientId: 'cid1',
@@ -2905,28 +2922,28 @@ module.exports = function (serverBuilder, config) {
       var client = {}
       var incomingStore = new mqtt.Store({ clean: false })
       var outgoingStore = new mqtt.Store({ clean: false })
-      var server2 = new MqttServer(function (c) {
+      var server2 = new MqttServer(function (serverClient) {
         // errors are not interesting for this test
         // but they might happen on some platforms
-        c.on('error', function () {})
+        serverClient.on('error', function () {})
 
-        c.on('connect', function (packet) {
-          c.connack({returnCode: 0})
+        serverClient.on('connect', function (packet) {
+          serverClient.connack({returnCode: 0})
         })
-        c.on('publish', function (packet) {
-          c.puback({messageId: packet.messageId})
+        serverClient.on('publish', function (packet) {
+          serverClient.puback({messageId: packet.messageId})
           if (reconnect) {
             switch (publishCount++) {
               case 0:
-                packet.payload.toString().should.equal('payload1')
+                assert.strictEqual(packet.payload.toString(), 'payload1')
                 break
               case 1:
-                packet.payload.toString().should.equal('payload2')
+                assert.strictEqual(packet.payload.toString(), 'payload2')
                 break
               case 2:
-                packet.payload.toString().should.equal('payload3')
+                assert.strictEqual(packet.payload.toString(), 'payload3')
                 server2.close()
-                done()
+                client.end(true, done)
                 break
             }
           } else {
@@ -2944,9 +2961,9 @@ module.exports = function (serverBuilder, config) {
         })
       })
 
-      server2.listen(port + 50, function () {
+      server2.listen(ports.PORTAND50, function () {
         client = mqtt.connect({
-          port: port + 50,
+          port: ports.PORTAND50,
           host: 'localhost',
           clean: false,
           clientId: 'cid1',
@@ -2978,7 +2995,7 @@ module.exports = function (serverBuilder, config) {
           tryReconnect = false
           client.reconnect()
         } else {
-          reconnectEvent.should.equal(true)
+          assert.isTrue(reconnectEvent)
           done()
         }
       })
@@ -3010,8 +3027,8 @@ module.exports = function (serverBuilder, config) {
             client.reconnect()
           }, 100)
         } else {
-          reconnectEvent.should.equal(true)
-          done()
+          assert.isTrue(reconnectEvent)
+          client.end(true, done)
         }
       })
 
@@ -3068,7 +3085,7 @@ module.exports = function (serverBuilder, config) {
             // after the second connection, confirm that the only two
             // subscribes have taken place, then cleanup and exit
             if (connectCount >= 2) {
-              subscribeCount.should.equal(2)
+              assert.strictEqual(subscribeCount, 2)
               client.end(true, done)
             }
           })
