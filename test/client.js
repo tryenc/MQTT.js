@@ -16,10 +16,12 @@ var util = require('util')
 var ports = require('./helpers/port_list')
 var serverBuilder = require('./server_helpers_for_client_tests').serverBuilder
 
-
 describe('MqttClient', function () {
-  var server = serverBuilder().listen(ports.PORT)
-  var config = { protocol: 'mqtt', port: ports.PORT}
+  var client
+  var server = serverBuilder()
+  var config = {protocol: 'mqtt', port: ports.PORT}
+
+  server.listen(ports.PORT)
 
   afterEach(done => {
     if (client) {
@@ -39,7 +41,6 @@ describe('MqttClient', function () {
   describe('creating', function () {
     it('should allow instantiation of MqttClient without the \'new\' operator', function (done) {
       assert.doesNotThrow(function () {
-        var client
         try {
           client = mqtt.MqttClient(function () {
             throw Error('break')
@@ -55,7 +56,7 @@ describe('MqttClient', function () {
 
   describe('message ids', function () {
     it('should increment the message id', function () {
-      var client = mqtt.connect(config)
+      client = mqtt.connect(config)
       var currentId = client._nextId()
 
       assert.equal(client._nextId(), currentId + 1)
@@ -63,7 +64,7 @@ describe('MqttClient', function () {
     })
 
     it('should return 1 once the internal counter reached limit', function () {
-      var client = mqtt.connect(config)
+      client = mqtt.connect(config)
       client.nextId = 65535
 
       assert.equal(client._nextId(), 65535)
@@ -72,7 +73,7 @@ describe('MqttClient', function () {
     })
 
     it('should return 65535 for last message id once the internal counter reached limit', function () {
-      var client = mqtt.connect(config)
+      client = mqtt.connect(config)
       client.nextId = 65535
 
       assert.equal(client._nextId(), 65535)
@@ -91,7 +92,7 @@ describe('MqttClient', function () {
       })
 
       server2.listen(ports.PORTAND49, function () {
-        var client = mqtt.connect({
+        client = mqtt.connect({
           port: ports.PORTAND49,
           host: 'localhost'
         })
@@ -117,7 +118,7 @@ describe('MqttClient', function () {
           cb() // nothing to do
         }
       })
-      var client = new mqtt.MqttClient(function () {
+      client = new mqtt.MqttClient(function () {
         return duplex
       }, {})
 
@@ -166,7 +167,7 @@ describe('MqttClient', function () {
 
       var pubCallbackCalled = false
       var unsubscribeCallbackCalled = false
-      var client = mqtt.connect({
+      client = mqtt.connect({
         port: ports.PORTAND72,
         host: 'localhost',
         keepalive: 1,
@@ -210,7 +211,7 @@ describe('MqttClient', function () {
         }
       })
 
-      var client = mqtt.connect({ port: 3000, host: 'localhost', keepalive: 1 })
+      client = mqtt.connect({ port: 3000, host: 'localhost', keepalive: 1 })
       client.once('connect', function () {
         innerServer.kill('SIGINT') // mocks server shutdown
         client.once('close', function () {
@@ -228,7 +229,7 @@ describe('MqttClient', function () {
       var serverPort42 = serverBuilder(true).listen(ports.PORTAND42)
 
       serverPort42.on('listening', function () {
-        var client = mqtt.connect({
+        client = mqtt.connect({
           protocol: 'wss',
           servers: [
             { port: ports.PORTAND41, host: 'localhost' },
@@ -239,13 +240,13 @@ describe('MqttClient', function () {
         serverPort41.once('client', function () {
           assert.equal(client.stream.socket.url, actualURL41, 'Protocol for second client should use the default protocol: wss, on port: port + 41.')
           client.end(true, done)
+          serverPort41.close()
         })
         serverPort42.on('client', function (c) {
           assert.equal(client.stream.socket.url, actualURL42, 'Protocol for connection should use ws, on port: port + 42.')
           c.stream.destroy()
-          server2.close()
+          serverPort42.close()
         })
-
 
         client.once('connect', function () {
           client.stream.destroy()
@@ -265,7 +266,7 @@ describe('MqttClient', function () {
       })
 
       server2.on('listening', function () {
-        var client = mqtt.connect({
+        client = mqtt.connect({
           servers: [
             { port: ports.PORTAND43, host: 'localhost_fake' },
             { port: ports.PORT, host: 'localhost' }
@@ -297,7 +298,7 @@ describe('MqttClient', function () {
         var connectTimeout = 1000
         var reconnectPeriod = 100
         var expectedReconnects = Math.floor(connectTimeout / reconnectPeriod)
-        var client = mqtt.connect({
+        client = mqtt.connect({
           port: ports.PORTAND44,
           host: 'localhost',
           connectTimeout: connectTimeout,
@@ -317,7 +318,7 @@ describe('MqttClient', function () {
       this.timeout(2500)
 
       var server2 = serverBuilder().listen(ports.PORTAND45)
-      var client = mqtt.connect({
+      client = mqtt.connect({
         port: ports.PORTAND45,
         host: 'localhost',
         connectTimeout: 350,
@@ -347,7 +348,7 @@ describe('MqttClient', function () {
       var KILL_COUNT = 4
       var killedConnections = 0
       var subIds = {}
-      var client = mqtt.connect({
+      client = mqtt.connect({
         port: ports.PORTAND46,
         host: 'localhost',
         connectTimeout: 350,
@@ -405,7 +406,7 @@ describe('MqttClient', function () {
       this.timeout(2500)
 
       var server2 = net.createServer(function (stream) {
-        var client = new Connection(stream)
+        client = new Connection(stream)
 
         client.on('error', function (e) { /* do nothing */ })
         client.on('connect', function (packet) {
@@ -415,7 +416,7 @@ describe('MqttClient', function () {
       })
 
       server2.listen(ports.PORTAND48, function () {
-        var client = mqtt.connect({
+        client = mqtt.connect({
           port: ports.PORTAND48,
           host: 'localhost',
           connectTimeout: 350,
@@ -437,7 +438,7 @@ describe('MqttClient', function () {
       var KILL_COUNT = 4
       var killedConnections = 0
       var pubIds = {}
-      var client = mqtt.connect({
+      client = mqtt.connect({
         port: ports.PORTAND47,
         host: 'localhost',
         connectTimeout: 350,
@@ -445,7 +446,7 @@ describe('MqttClient', function () {
       })
 
       var server2 = net.createServer(function (stream) {
-        var client = new Connection(stream)
+        client = new Connection(stream)
         client.on('error', function () {})
         client.on('connect', function (packet) {
           if (packet.clientId === 'invalid') {
@@ -517,7 +518,7 @@ describe('MqttClient', function () {
       port: ports.PORTAND118,
       protocolVersion: 5
     }
-    var client = mqtt.connect(opts)
+    client = mqtt.connect(opts)
 
     // wait for the client to receive an error...
     client.on('error', function (error) {

@@ -13,16 +13,12 @@ var assert = require('chai').assert
 var ports = require('./helpers/port_list')
 
 module.exports = function (server, config) {
-  /************************** SETUP **************************/
   var version = config.protocolVersion || 4
-  var config = config
 
   function connect (opts) {
     opts = xtend(config, opts)
     return mqtt.connect(opts)
   }
-
-  /************************** TESTS **************************/
 
   describe('closing', function () {
     it('should emit close if stream closes', function (done) {
@@ -785,7 +781,7 @@ module.exports = function (server, config) {
         }
       })
 
-      client.publish(testTopic, payload)
+      client.publish(topic, payload)
     })
 
     it('should accept options', function (done) {
@@ -1055,9 +1051,6 @@ module.exports = function (server, config) {
 
     it('should handle error with async incoming store in QoS 1 `handlePublish` method', function (done) {
       class AsyncStore {
-        constructor() {
-        }
-
         put (packet, cb) {
           process.nextTick(function () {
             cb(null, 'Error')
@@ -1065,7 +1058,7 @@ module.exports = function (server, config) {
         }
 
         close (cb) {
-            cb()
+          cb()
         }
       }
 
@@ -1085,9 +1078,6 @@ module.exports = function (server, config) {
 
     it('should handle error with async incoming store in QoS 2 `handlePublish` method', function (done) {
       class AsyncStore {
-        constructor() {
-        }
-
         put (packet, cb) {
           process.nextTick(function () {
             cb(null, 'Error')
@@ -1095,7 +1085,7 @@ module.exports = function (server, config) {
         }
 
         close (cb) {
-            cb()
+          cb()
         }
       }
 
@@ -1115,9 +1105,6 @@ module.exports = function (server, config) {
 
     it('should handle error with async incoming store in QoS 2 `handlePubrel` method', function (done) {
       class AsyncStore {
-        constructor() {
-        }
-
         put (packet, cb) {
           process.nextTick(function () {
             cb(null, 'Error')
@@ -1137,12 +1124,12 @@ module.exports = function (server, config) {
         }
 
         close (cb) {
-            cb()
+          cb()
         }
       }
 
       var store = new AsyncStore()
-      var client = connect({incomingStore: store})
+      var client = connect({ incomingStore: store })
 
       client._handlePubrel({
         messageId: 1,
@@ -1155,9 +1142,6 @@ module.exports = function (server, config) {
     it('should handle success with async incoming store in QoS 2 `handlePubrel` method', function (done) {
       var delComplete = false
       class AsyncStore {
-        constructor() {
-        }
-
         put (packet, cb) {
           process.nextTick(function () {
             cb(null, 'Error')
@@ -1178,7 +1162,7 @@ module.exports = function (server, config) {
         }
 
         close (cb) {
-            cb()
+          cb()
         }
       }
 
@@ -1254,7 +1238,6 @@ module.exports = function (server, config) {
           qos: qos,
           cmd: 'publish'
         }, function () {
-          var err
           try {
             client._handlePubrel({cmd: 'pubrel', messageId: messageId})
             client.end(true, done)
@@ -1360,11 +1343,11 @@ module.exports = function (server, config) {
       {args: [1, true], expected: ['storeput', 'publish']},
       {args: [1, false], expected: ['storeput', 'publish']},
       {args: [2, true], expected: ['storeput', 'publish']},
-      {args: [2, false], expected: ['storeput', 'publish']},
+      {args: [2, false], expected: ['storeput', 'publish']}
     ]
 
-    callbackStorePutByQoSParameters.forEach(function(test) {
-      if (test.args[0] === 0)  { // QoS 0
+    callbackStorePutByQoSParameters.forEach(function (test) {
+      if (test.args[0] === 0) { // QoS 0
         it('should not call cbStorePut when publishing message with QoS `' + test.args[0] + '` and clean `' + test.args[1] + '`', function (done) {
           testCallbackStorePutByQoS(test.args[0], test.args[1], test.expected, done)
         })
@@ -2119,7 +2102,7 @@ module.exports = function (server, config) {
             assert.isFalse(pubrecReceived)
             publishReceived = true
             break
-            case 'pubrel':
+          case 'pubrel':
             assert.isTrue(publishReceived)
             assert.isTrue(pubrecReceived)
             pubrelReceived = true
@@ -2250,7 +2233,6 @@ module.exports = function (server, config) {
                 assert.instanceOf(err, Error)
               } else {
                 assert.notExists(err)
-
               }
             })
             break
@@ -2276,13 +2258,13 @@ module.exports = function (server, config) {
   })
 
   describe('auto reconnect', function () {
-    it('should mark the client disconnecting if #end called', function () {
+    it('should mark the client disconnecting if #end called', function (done) {
       var client = connect()
 
       client.end(true, function (err) {
         assert.isTrue(client.disconnecting)
         done(err)
-       })
+      })
     })
 
     it('should reconnect after stream disconnect', function (done) {
@@ -2379,7 +2361,7 @@ module.exports = function (server, config) {
           } else {
             end = Date.now()
             client.end(() => {
-              if (end - start >= period - 200 && end - start <= period + 200) {
+              if (end - start >= test.period - 200 && end - start <= test.period + 200) {
                 // give the connection a 200 ms slush window
                 done()
               } else {
