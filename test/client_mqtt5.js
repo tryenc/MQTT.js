@@ -17,8 +17,8 @@ describe('MQTT 5.0', function () {
   // var server = serverBuilder().listen(ports.PORTAND115)
 
   var topicAliasTests = [
-    {properties: {}, name: 'topicAlias w/o topicAliasMaximum in settings'},
-    {properties: { topicAliasMaximum: 15 }, name: 'topicAlias > topiAliasMaximum'}
+    {properties: {}, name: 'should allow any topicAlias when no topicAliasMaximum provided in settings'},
+    {properties: { topicAliasMaximum: 15 }, name: 'should not allow topicAlias > topicAliasMaximum when topicAliasMaximum provided in settings'}
   ]
 
   topicAliasTests.forEach(function (test) {
@@ -29,8 +29,9 @@ describe('MQTT 5.0', function () {
           if (packet.properties && packet.properties.topicAlias) {
             done(new Error('Packet should not have topicAlias'))
             return false
+          } else {
+            serverClient.end(done)
           }
-          serverClient.end(done)
         })
       })
       var opts = {host: 'localhost', port: ports.PORTAND115, protocolVersion: 5, properties: test.properties}
@@ -39,26 +40,35 @@ describe('MQTT 5.0', function () {
     })
   })
 
-  it.only('should throw an error if there is Auth Data with no Auth Method', function (done) {
-    // this.timeout(5000)
+  it('should throw an error if there is Auth Data with no Auth Method', function (done) {
+    this.timeout(5000)
     var client
     var opts = {host: 'localhost', port: ports.PORTAND115, protocolVersion: 5, properties: { authenticationData: Buffer.from([1, 2, 3, 4]) }}
     console.log('client connecting')
     client = mqtt.connect(opts)
     client.on('error', function (error) {
+      console.log('error hit')
       assert.strictEqual(error.message, 'Packet has no Authentication Method')
-      client.end(true, done)
+      // client will not be connected, so we will call done.
+      assert.isTrue(client.disconnected, 'validate client is disconnected')
+      client.end(true, function () {
+        done()
+      })
+      // done()
     })
   })
 
   it('auth packet', function (done) {
     this.timeout(15000)
     server.once('client', function (serverClient) {
+      console.log('server received client')
       serverClient.on('auth', function (packet) {
+        console.log('serverClient received auth: packet %o', packet)
         serverClient.end(done)
       })
     })
     var opts = {host: 'localhost', port: ports.PORTAND115, protocolVersion: 5, properties: { authenticationMethod: 'json' }, authPacket: {}}
+    console.log('calling mqtt connect')
     mqtt.connect(opts)
   })
 
@@ -171,8 +181,7 @@ describe('MQTT 5.0', function () {
         } else {
           if (!tryReconnect) {
             assert.strictEqual(packet.properties.userProperties.test, 'test')
-            serverClient.end()
-            done()
+            serverClient.end(done)
             server326.close()
           }
         }
@@ -303,7 +312,7 @@ describe('MQTT 5.0', function () {
   })
 
   it('puback handling custom reason code', function (done) {
-    this.timeout(15000)
+    // this.timeout(15000)
     serverThatSendsErrors.listen(ports.PORTAND117)
     var opts = {
       host: 'localhost',
@@ -325,7 +334,7 @@ describe('MQTT 5.0', function () {
 
       serverClient.on('puback', function (packet) {
         assert.strictEqual(packet.reasonCode, 128)
-        serverClient.end(true, done)
+        serverClient.end(done)
         serverClient.destroy()
         serverThatSendsErrors.close()
       })

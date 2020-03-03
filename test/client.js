@@ -36,7 +36,7 @@ describe('MqttClient', function () {
     }
   })
 
-  abstractClientTests(config)
+  abstractClientTests(server, config)
 
   describe('creating', function () {
     it('should allow instantiation of MqttClient without the \'new\' operator', function (done) {

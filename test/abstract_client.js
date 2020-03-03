@@ -245,9 +245,11 @@ module.exports = function (server, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('connect', function (packet) {
-          assert.include(packet.cliendId, 'testclient')
+          assert.include(packet.clientId, 'testclient')
           serverClient.disconnect()
-          done()
+          client.end(function (err) {
+            done(err)
+          })
         })
       })
     })
@@ -260,7 +262,7 @@ module.exports = function (server, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('connect', function (packet) {
-          assert.include(packet.cliendId, 'testclient')
+          assert.include(packet.clientId, 'testclient')
           assert.isFalse(packet.clean)
           serverClient.disconnect()
           client.end(true, done)
@@ -289,7 +291,7 @@ module.exports = function (server, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('connect', function (packet) {
-          assert.include(packet.cliendId, 'testclient')
+          assert.include(packet.clientId, 'testclient')
           serverClient.disconnect()
           done()
         })
@@ -319,7 +321,7 @@ module.exports = function (server, config) {
       client.once('connect', function (packet) {
         assert.strictEqual(packet.sessionPresent, true)
         client.once('connect', function (packet) {
-          assert.strictEqual(packet.sessionPresent, true)
+          assert.strictEqual(packet.sessionPresent, false)
           client.end()
           done()
         })
@@ -516,10 +518,10 @@ module.exports = function (server, config) {
       client.publish('test', 'test')
       client.subscribe('test')
       client.unsubscribe('test')
-      assert.strictEqual(client.queue, 3)
+      assert.strictEqual(client.queue.length, 3)
 
       client.once('connect', function () {
-        assert.strictEqual(client.queue, 0)
+        assert.strictEqual(client.queue.length, 0)
         setTimeout(function () {
           client.end(true, done)
         }, 10)
@@ -804,7 +806,7 @@ module.exports = function (server, config) {
           assert.strictEqual(packet.qos, opts.qos, 'incorrect qos')
           assert.strictEqual(packet.retain, opts.retain, 'incorrect ret')
           assert.strictEqual(packet.dup, false, 'incorrect dup')
-          client.end(true, done)
+          client.end(done)
         })
       })
     })
@@ -852,7 +854,7 @@ module.exports = function (server, config) {
           assert.strictEqual(packet.qos, opts.qos, 'incorrect qos')
           assert.strictEqual(packet.retain, opts.retain, 'incorrect ret')
           assert.strictEqual(packet.dup, opts.dup, 'incorrect dup')
-          client.end(true, done)
+          client.end(done)
         })
       })
     })
@@ -1368,7 +1370,7 @@ module.exports = function (server, config) {
       server.once('client', function (serverClient) {
         serverClient.once('unsubscribe', function (packet) {
           assert.include(packet.unsubscriptions, 'test')
-          client.end(true, done)
+          client.end(done)
         })
       })
     })
@@ -1384,7 +1386,7 @@ module.exports = function (server, config) {
       server.once('client', function (serverClient) {
         serverClient.once('unsubscribe', function (packet) {
           assert.include(packet.unsubscriptions, topic)
-          client.end(true, done)
+          client.end(done)
         })
       })
     })
@@ -1429,8 +1431,8 @@ module.exports = function (server, config) {
 
       server.once('client', function (serverClient) {
         serverClient.once('unsubscribe', function (packet) {
-          assert.strictEqual(packet.unsubscriptions, topics)
-          client.end(true, done)
+          assert.deepStrictEqual(packet.unsubscriptions, topics)
+          client.end(done)
         })
       })
     })
@@ -1440,13 +1442,14 @@ module.exports = function (server, config) {
       var topic = 'topic'
 
       client.once('connect', function () {
-        client.unsubscribe(topic, done)
+        client.unsubscribe(topic, () => {
+          client.end(true, done)
+        })
       })
 
       server.once('client', function (serverClient) {
         serverClient.once('unsubscribe', function (packet) {
           serverClient.unsuback(packet)
-          client.end(true, done)
         })
       })
     })
@@ -1456,13 +1459,16 @@ module.exports = function (server, config) {
       var topic = '中国'
 
       client.once('connect', function () {
-        client.unsubscribe(topic)
+        client.unsubscribe(topic, () => {
+          client.end(err => {
+            done(err)
+          })
+        })
       })
 
       server.once('client', function (serverClient) {
         serverClient.once('unsubscribe', function (packet) {
           assert.include(packet.unsubscriptions, topic)
-          client.end(true, done)
         })
       })
     })
@@ -1632,7 +1638,7 @@ module.exports = function (server, config) {
             result.rap = false
             result.rh = 0
           }
-          assert.includes(packet.subscriptions, result)
+          assert.include(packet.subscriptions[0], result)
           done()
         })
       })
@@ -1689,13 +1695,13 @@ module.exports = function (server, config) {
             return result
           })
 
-          assert.strictEqual(packet.subscriptions, expected)
-          client.end(true, done)
+          assert.deepStrictEqual(packet.subscriptions, expected)
+          client.end(done)
         })
       })
     })
 
-    it('should accept an hash of subscriptions', function (done) {
+    it('should accept a hash of subscriptions', function (done) {
       var client = connect()
       var topics = {
         test1: {qos: 0},
@@ -1726,8 +1732,8 @@ module.exports = function (server, config) {
             }
           }
 
-          assert.strictEqual(packet.subscriptions, expected)
-          client.end(true, done)
+          assert.deepStrictEqual(packet.subscriptions, expected)
+          client.end(done)
         })
       })
     })
@@ -1754,7 +1760,7 @@ module.exports = function (server, config) {
             expected[0].rh = 0
           }
 
-          assert.strictEqual(packet.subscriptions, expected)
+          assert.deepStrictEqual(packet.subscriptions, expected)
           done()
         })
       })
@@ -1781,8 +1787,8 @@ module.exports = function (server, config) {
             result.rh = 0
           }
 
-          assert.include(packet.subscriptions, result)
-          client.end(true, done)
+          assert.include(packet.subscriptions[0], result)
+          client.end(err => done(err))
         })
       })
     })
@@ -1797,15 +1803,15 @@ module.exports = function (server, config) {
             done(err)
           } else {
             assert.exists(granted, 'granted not given')
-            var result = {topic: 'test', qos: 2}
+            var expectedResult = {topic: 'test', qos: 2}
             if (version === 5) {
-              result.nl = false
-              result.rap = false
-              result.rh = 0
-              result.properties = undefined
+              expectedResult.nl = false
+              expectedResult.rap = false
+              expectedResult.rh = 0
+              expectedResult.properties = undefined
             }
-            assert.include(granted, result)
-            done()
+            assert.include(granted[0], expectedResult)
+            client.end(err => done(err))
           }
         })
       })
@@ -1859,8 +1865,8 @@ module.exports = function (server, config) {
             result.rap = false
             result.rh = 0
           }
-          assert.include(packet.subscriptions, result)
-          client.end(true, done)
+          assert.include(packet.subscriptions[0], result)
+          client.end(done)
         })
       })
     })
@@ -1877,11 +1883,12 @@ module.exports = function (server, config) {
         messageId: 5
       }
 
+      //
       client.subscribe(testPacket.topic)
       client.once('message', function (topic, message, packet) {
         assert.strictEqual(topic, testPacket.topic)
         assert.strictEqual(message.toString(), testPacket.payload)
-        assert.strictEqual(packet, testPacket)
+        assert.strictEqual(packet.cmd, 'publish')
         client.end(true, done)
       })
 
@@ -1935,7 +1942,7 @@ module.exports = function (server, config) {
         assert.strictEqual(topic, testPacket.topic)
         assert.instanceOf(message, Buffer)
         assert.strictEqual(message.toString(), testPacket.payload)
-        assert.strictEqual(packet, testPacket)
+        assert.strictEqual(packet.cmd, 'publish')
         client.end(true, done)
       })
 
@@ -1962,7 +1969,8 @@ module.exports = function (server, config) {
       client.once('message', function (topic, message, packet) {
         assert.strictEqual(topic, testPacket.topic)
         assert.strictEqual(message.toString(), testPacket.payload)
-        assert.strictEqual(packet, testPacket)
+        assert.strictEqual(packet.messageId, testPacket.messageId)
+        assert.strictEqual(packet.qos, testPacket.qos)
         client.end(true, done)
       })
 
@@ -1985,13 +1993,20 @@ module.exports = function (server, config) {
 
       server.testPublish = testPacket
 
-      client.subscribe(testPacket.topic)
-      client.on('message', function (topic, message, packet) {
+      var messageHandler = function (topic, message, packet) {
         assert.strictEqual(topic, testPacket.topic)
         assert.strictEqual(message.toString(), testPacket.payload)
-        assert.strictEqual(packet, testPacket)
+        assert.strictEqual(packet.messageId, testPacket.messageId)
+        assert.strictEqual(packet.qos, testPacket.qos)
+
+        assert.strictEqual(spiedMessageHandler.callCount, 1)
         client.end(true, done)
-      })
+      }
+
+      var spiedMessageHandler = sinon.spy(messageHandler)
+
+      client.subscribe(testPacket.topic)
+      client.on('message', spiedMessageHandler)
 
       server.once('client', function (serverClient) {
         serverClient.on('subscribe', function () {
@@ -2002,7 +2017,7 @@ module.exports = function (server, config) {
       })
     })
 
-    it('should support chinese topic', function (done) {
+    it('should support a chinese topic', function (done) {
       var client = connect({ encoding: 'binary' })
       var testPacket = {
         topic: '国',
@@ -2017,7 +2032,8 @@ module.exports = function (server, config) {
         assert.strictEqual(topic, testPacket.topic)
         assert.instanceOf(message, Buffer)
         assert.strictEqual(message.toString(), testPacket.payload)
-        assert.strictEqual(packet, testPacket)
+        assert.strictEqual(packet.messageId, testPacket.messageId)
+        assert.strictEqual(packet.qos, testPacket.qos)
         client.end(true, done)
       })
 
@@ -2036,7 +2052,9 @@ module.exports = function (server, config) {
       var testMessage = 'message'
 
       client.once('connect', function () {
-        client.subscribe(testTopic, {qos: 0})
+        client.subscribe(testTopic, {qos: 0}, () => {
+          client.end(true, done)
+        })
       })
 
       server.once('client', function (serverClient) {
@@ -2047,7 +2065,7 @@ module.exports = function (server, config) {
             qos: 0,
             retain: false
           })
-          client.end(true, done)
+          // client.end(done)
         })
       })
     })
@@ -2073,8 +2091,8 @@ module.exports = function (server, config) {
         })
 
         serverClient.once('puback', function (packet) {
-          assert.strictEqual(packet.messageid, mid)
-          client.end(true, done)
+          assert.strictEqual(packet.messageId, mid)
+          client.end(done)
         })
       })
     })
@@ -2084,9 +2102,9 @@ module.exports = function (server, config) {
       var testTopic = 'test'
       var testMessage = 'message'
       var mid = 253
-      var publishReceived = false
-      var pubrecReceived = false
-      var pubrelReceived = false
+      var publishReceived = 0
+      var pubrecReceived = 0
+      var pubrelReceived = 0
 
       client.once('connect', function () {
         client.subscribe(testTopic, {qos: 2})
@@ -2099,13 +2117,14 @@ module.exports = function (server, config) {
             // expected, but not specifically part of QOS 2 semantics
             break
           case 'publish':
-            assert.isFalse(pubrecReceived)
-            publishReceived = true
+            assert.strictEqual(pubrecReceived, 0, 'server received pubrec before client sent')
+            assert.strictEqual(pubrelReceived, 0, 'server received pubrec before client sent')
+            publishReceived += 1
             break
           case 'pubrel':
-            assert.isTrue(publishReceived)
-            assert.isTrue(pubrecReceived)
-            pubrelReceived = true
+            assert.strictEqual(publishReceived, 1, 'only 1 publish must be received before a pubrel')
+            assert.strictEqual(pubrecReceived, 1, 'invalid number of PUBREC messages (not only 1)')
+            pubrelReceived += 1
             break
           default:
             should.fail()
@@ -2123,17 +2142,17 @@ module.exports = function (server, config) {
         })
 
         serverClient.on('pubrec', function () {
-          assert.isTrue(publishReceived)
-          assert.isFalse(pubrecReceived)
-          pubrecReceived = true
+          assert.strictEqual(publishReceived, 1, 'invalid number of PUBLISH messages received')
+          assert.strictEqual(pubrecReceived, 0, 'invalid number of PUBREC messages recevied')
+          pubrecReceived += 1
         })
 
         serverClient.once('pubcomp', function () {
           client.removeAllListeners()
           serverClient.removeAllListeners()
-          assert.isTrue(publishReceived)
-          assert.isTrue(pubrecReceived)
-          assert.isTrue(pubrelReceived)
+          assert.strictEqual(publishReceived, 1, 'invalid number of PUBLISH messages')
+          assert.strictEqual(pubrecReceived, 1, 'invalid number of PUBREC messages')
+          assert.strictEqual(pubrelReceived, 1, 'invalid nubmer of PUBREL messages')
           client.end(true, done)
         })
       })
@@ -2419,10 +2438,10 @@ module.exports = function (server, config) {
         serverClient.on('connect', function () {
           setImmediate(function () {
             serverClient.stream.destroy()
-            client.end(function () {
+            client.end(true, function (args) {
               assert.isFalse(serverPublished)
               assert.isFalse(clientCalledBack)
-              done()
+              done(args)
             })
           })
         })
@@ -2492,15 +2511,18 @@ module.exports = function (server, config) {
 
       client.publish('hello', 'world', { qos: 1 }, function (err) {
         clientCalledBack = true
-        assert.strictEqual(err.message, 'Message removed')
+        assert.exists(err, 'error should exist')
+        assert.strictEqual(err.message, 'Message removed', 'error message is incorrect')
       })
       assert.strictEqual(Object.keys(client.outgoing).length, 1)
-      assert.strictEqual(client.outgoing._inflights.size, 1)
+      assert.strictEqual(client.outgoingStore._inflights.size, 1)
       client.removeOutgoingMessage(client.getLastMessageId())
       assert.strictEqual(Object.keys(client.outgoing).length, 0)
       assert.strictEqual(client.outgoingStore._inflights.size, 0)
       assert.isTrue(clientCalledBack)
-      client.end(true, done)
+      client.end(true, function (err) {
+        done(err)
+      })
     })
 
     it('should not resend in-flight QoS 2 removed publish messages from the client', function (done) {
@@ -2551,7 +2573,7 @@ module.exports = function (server, config) {
 
             server.once('client', function (serverClient) {
               serverClient.on('subscribe', function () {
-                client.end(true, done)
+                client.end(done)
               })
             })
           })
