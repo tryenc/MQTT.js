@@ -2,6 +2,7 @@
 
 var MqttServer = require('./server').MqttServer
 var MqttServerNoWait = require('./server').MqttServerNoWait
+var debug = require('debug')('TEST:server_helpers')
 
 /**
  * This will build the client for the server to use during testing, and set up the
@@ -9,17 +10,17 @@ var MqttServerNoWait = require('./server').MqttServerNoWait
  * @param {boolean} fastFlag
  */
 function serverBuilder (fastFlag) {
-  var handler = function (client) {
-    client.on('auth', function (packet) {
+  var handler = function (serverClient) {
+    serverClient.on('auth', function (packet) {
       var rc = 'reasonCode'
       var connack = {}
       connack[rc] = 0
-      client.connack(connack)
+      serverClient.connack(connack)
     })
-    client.on('connect', function (packet) {
+    serverClient.on('connect', function (packet) {
       var rc = 'returnCode'
       var connack = {}
-      if (client.options && client.options.protocolVersion === 5) {
+      if (serverClient.options && serverClient.options.protocolVersion === 5) {
         rc = 'reasonCode'
         if (packet.clientId === 'invalid') {
           connack[rc] = 128
@@ -36,39 +37,39 @@ function serverBuilder (fastFlag) {
       if (packet.properties && packet.properties.authenticationMethod) {
         return false
       } else {
-        client.connack(connack)
+        serverClient.connack(connack)
       }
     })
 
-    client.on('publish', function (packet) {
+    serverClient.on('publish', function (packet) {
       setImmediate(function () {
         switch (packet.qos) {
           case 0:
             break
           case 1:
-            client.puback(packet)
+            serverClient.puback(packet)
             break
           case 2:
-            client.pubrec(packet)
+            serverClient.pubrec(packet)
             break
         }
       })
     })
 
-    client.on('pubrel', function (packet) {
-      client.pubcomp(packet)
+    serverClient.on('pubrel', function (packet) {
+      serverClient.pubcomp(packet)
     })
 
-    client.on('pubrec', function (packet) {
-      client.pubrel(packet)
+    serverClient.on('pubrec', function (packet) {
+      serverClient.pubrel(packet)
     })
 
-    client.on('pubcomp', function () {
+    serverClient.on('pubcomp', function () {
       // Nothing to be done
     })
 
-    client.on('subscribe', function (packet) {
-      client.suback({
+    serverClient.on('subscribe', function (packet) {
+      serverClient.suback({
         messageId: packet.messageId,
         granted: packet.subscriptions.map(function (e) {
           return e.qos
@@ -76,17 +77,17 @@ function serverBuilder (fastFlag) {
       })
     })
 
-    client.on('unsubscribe', function (packet) {
+    serverClient.on('unsubscribe', function (packet) {
       packet.granted = packet.unsubscriptions.map(function () { return 0 })
-      client.unsuback(packet)
+      serverClient.unsuback(packet)
     })
 
-    client.on('pingreq', function () {
-      client.pingresp()
+    serverClient.on('pingreq', function () {
+      serverClient.pingresp()
     })
 
-    client.on('end', function () {
-      console.log('disconnected from server')
+    serverClient.on('end', function () {
+      debug('disconnected from server')
     })
   }
   if (fastFlag) {
