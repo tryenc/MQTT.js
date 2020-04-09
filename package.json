@@ -19,9 +19,11 @@
     "type": "git",
     "url": "git://github.com/mqttjs/MQTT.js.git"
   },
-  "main": "mqtt.js",
+  "main": "dist/mqtt.js",
   "types": "types/index.d.ts",
   "scripts": {
+    "build": "webpack",
+    "watch": "webpack --watch",
     "test": "node_modules/.bin/nyc --reporter=lcov --reporter=text ./node_modules/mocha/bin/_mocha",
     "pretest": "standard | snazzy",
     "tslint": "if [[ \"`node -v`\" != \"v4.3.2\" ]]; then tslint types/**/*.d.ts; fi",
@@ -77,6 +79,7 @@
     "readable-stream": "^2.3.6",
     "reinterval": "^1.1.0",
     "split2": "^3.1.0",
+    "webpack": "^4.42.1",
     "websocket-stream": "^5.1.2",
     "xtend": "^4.0.1"
   },
@@ -85,6 +88,7 @@
     "airtap": "^3.0.0",
     "browserify": "^16.5.0",
     "chai": "^4.2.0",
+    "clean-webpack-plugin": "^3.0.0",
     "codecov": "^3.0.4",
     "global": "^4.3.2",
     "mkdirp": "^0.5.1",
@@ -103,6 +107,7 @@
     "tslint-config-standard": "^8.0.1",
     "typescript": "^3.2.2",
     "uglify-es": "^3.3.9",
+    "webpack-cli": "^3.3.11",
     "ws": "^3.3.3"
   },
   "standard": {
