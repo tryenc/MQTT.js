@@ -77,6 +77,7 @@
     "split2": "^3.1.0",
     "webpack": "^4.42.1",
     "websocket-stream": "^5.1.2",
+    "ws": "^3.3.3",
     "xtend": "^4.0.1"
   },
   "devDependencies": {
@@ -103,7 +104,6 @@
     "tslint-config-standard": "^8.0.1",
     "typescript": "^3.2.2",
     "uglify-es": "^3.3.9",
-    "webpack-cli": "^3.3.11",
-    "ws": "^3.3.3"
+    "webpack-cli": "^3.3.11"
   }
 }
