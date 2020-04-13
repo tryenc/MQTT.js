@@ -17,7 +17,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git://github.com/mqttjs/MQTT.js.git"
+    "url": "git://github.com/tryenc/MQTT.js.git"
   },
   "main": "dist/mqtt.js",
   "types": "types/index.d.ts",
@@ -36,10 +36,6 @@
     "sauce-test": "airtap --server test/browser/server.js -- test/browser/test.js",
     "ci": "npm run tslint && npm run typescript-compile-test && npm run test && codecov"
   },
-  "pre-commit": [
-    "test",
-    "tslint"
-  ],
   "bin": {
     "mqtt_pub": "./bin/pub.js",
     "mqtt_sub": "./bin/sub.js",
@@ -109,10 +105,5 @@
     "uglify-es": "^3.3.9",
     "webpack-cli": "^3.3.11",
     "ws": "^3.3.3"
-  },
-  "standard": {
-    "env": [
-      "mocha"
-    ]
   }
 }
