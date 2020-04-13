@@ -1,5 +1,5 @@
 {
-  "name": "mqtt",
+  "name": "mqtt-web",
   "description": "A library for the MQTT protocol",
   "version": "3.0.0",
   "contributors": [
@@ -22,19 +22,18 @@
   "main": "dist/mqtt.js",
   "types": "types/index.d.ts",
   "scripts": {
-    "build": "webpack",
-    "watch": "webpack --watch",
-    "test": "node_modules/.bin/nyc --reporter=lcov --reporter=text ./node_modules/mocha/bin/_mocha",
-    "pretest": "standard | snazzy",
-    "tslint": "if [[ \"`node -v`\" != \"v4.3.2\" ]]; then tslint types/**/*.d.ts; fi",
-    "typescript-compile-test": "tsc -p test/typescript/tsconfig.json",
-    "typescript-compile-execute": "node test/typescript/*.js",
-    "typescript-test": "npm run typescript-compile-test && npm run typescript-compile-execute",
     "browser-build": "rimraf dist/ && mkdirp dist/ && browserify mqtt.js --standalone mqtt > dist/mqtt.js && uglifyjs dist/mqtt.js --compress --mangle --output dist/mqtt.min.js",
-    "prepare": "npm run browser-build",
     "browser-test": "airtap --server test/browser/server.js --local --open test/browser/test.js",
+    "build": "webpack",
+    "ci": "npm run tslint && npm run typescript-compile-test && npm run test && codecov",
+    "prepare": "npm run browser-build",
     "sauce-test": "airtap --server test/browser/server.js -- test/browser/test.js",
-    "ci": "npm run tslint && npm run typescript-compile-test && npm run test && codecov"
+    "test": "node_modules/.bin/nyc --reporter=lcov --reporter=text ./node_modules/mocha/bin/_mocha",
+    "tslint": "if [[ \"`node -v`\" != \"v4.3.2\" ]]; then tslint types/**/*.d.ts; fi",
+    "typescript-compile-execute": "node test/typescript/*.js",
+    "typescript-compile-test": "tsc -p test/typescript/tsconfig.json",
+    "typescript-test": "npm run typescript-compile-test && npm run typescript-compile-execute",
+    "watch": "webpack --watch"
   },
   "bin": {
     "mqtt_pub": "./bin/pub.js",
@@ -70,6 +69,7 @@
     "help-me": "^1.0.1",
     "inherits": "^2.0.3",
     "minimist": "^1.2.0",
+    "mqtt": "^3.0.0",
     "mqtt-packet": "^6.0.0",
     "pump": "^3.0.0",
     "readable-stream": "^2.3.6",
@@ -77,7 +77,6 @@
     "split2": "^3.1.0",
     "webpack": "^4.42.1",
     "websocket-stream": "^5.1.2",
-    "ws": "^3.3.3",
     "xtend": "^4.0.1"
   },
   "devDependencies": {
